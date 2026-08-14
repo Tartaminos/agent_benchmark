@@ -1,0 +1,2 @@
+class ProductCategoryTranslation < ApplicationRecord
+end

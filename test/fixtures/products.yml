@@ -1,0 +1,23 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  product_id: MyString
+  category_name: MyString
+  name_length: 1
+  description_length: 1
+  photos_quantity: 1
+  weight_g: 1
+  length_cm: 1
+  height_cm: 1
+  width_cm: 1
+
+two:
+  product_id: MyString
+  category_name: MyString
+  name_length: 1
+  description_length: 1
+  photos_quantity: 1
+  weight_g: 1
+  length_cm: 1
+  height_cm: 1
+  width_cm: 1
