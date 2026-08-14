@@ -36,7 +36,5 @@
 # dumps
 /benchmark/snapshots/*.dump
 
-# Benchmark harness local state and credentials.
+# Benchmark harness local credentials.
 /benchmark/harness/.env
-/benchmark/harness/.venv/
-/benchmark/harness/__pycache__/
