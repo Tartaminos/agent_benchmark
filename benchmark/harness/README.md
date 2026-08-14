@@ -1,6 +1,6 @@
 # Codex Benchmark Harness
 
-This harness executes one benchmark task with Codex, captures reproducible run artifacts, aggregates token usage across the root thread and persisted descendant subagent rollouts, and sends the resulting metrics to the local Langfuse instance.
+This harness executes benchmark tasks with Codex, captures run artifacts, aggregates token usage across the root thread and persisted descendant subagent rollouts, and sends the resulting metrics to the local Langfuse instance.
 
 The harness is implemented in Ruby and uses only the Ruby standard library. It does not require Python, a virtual environment, pip, or a Langfuse SDK.
 
@@ -30,9 +30,7 @@ Edit `benchmark/harness/.env` and add the API keys created by the local Langfuse
 http://localhost:3001
 ```
 
-Real credentials must never be committed.
-
-No additional Ruby gems are required by the harness.
+Real credentials must never be committed. No additional Ruby gems are required by the harness.
 
 ## Test Langfuse before the first benchmark
 
@@ -44,16 +42,35 @@ ruby benchmark/harness/run_benchmark.rb --check-langfuse
 
 The command should print a Langfuse trace ID. Confirm that `benchmark-harness-canary` appears in the local Langfuse UI before starting measured runs.
 
-## Run isolation
+## Benchmark branch workflow
 
-Do not execute measured tasks directly on `main` or `baseline`. Create a fresh run branch from the frozen baseline first:
+`main` is the common project base and is protected from measured runs.
 
-```bash
-git checkout baseline
-git checkout -b runs/baseline-task-01-run-01
+Each experiment configuration is represented by its own branch, for example:
+
+```text
+main
+├── baseline
+├── experiment/no-qa
+└── experiment/reduced-context
 ```
 
-The runner requires a clean working tree and resets the benchmark database before starting the timer.
+Measured tasks run directly on the experiment branch. The five tasks are intentionally executed sequentially on that branch, matching a normal development workflow. After each successful task, commit the produced application changes before running the next task.
+
+The runner does not reset the Git working tree or the database automatically between tasks. It only requires the working tree to be clean at the beginning of each measured run.
+
+Example baseline sequence:
+
+```text
+baseline
+  Task 01 -> commit
+  Task 02 -> commit
+  Task 03 -> commit
+  Task 04 -> commit
+  Task 05 -> commit
+```
+
+Future experiment branches must execute the same task order so that the workflow configuration remains the intended experimental variable.
 
 ## Task 01 example
 
@@ -106,7 +123,7 @@ agent_benchmark_runs/
 - human intervention count;
 - Langfuse ingestion status and trace ID.
 
-Database reset, metric parsing, Git inspection, and Langfuse ingestion occur outside the measured `codex exec` wall time.
+Metric parsing, Git inspection, and Langfuse ingestion occur outside the measured `codex exec` wall time.
 
 ## Why persisted Codex rollouts are required
 
