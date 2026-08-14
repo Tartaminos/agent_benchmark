@@ -26,7 +26,7 @@ API_USD_PER_MTOK = {
   "cached_input" => 0.5,
   "output" => 30.0
 }.freeze
-PROTECTED_BRANCHES = %w[main baseline].freeze
+PROTECTED_BRANCHES = %w[main].freeze
 USAGE_FIELDS = %w[
   input_tokens
   cached_input_tokens
