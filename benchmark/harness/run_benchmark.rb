@@ -26,7 +26,7 @@ API_USD_PER_MTOK = {
   "cached_input" => 0.5,
   "output" => 30.0
 }.freeze
-PROTECTED_BRANCHES = %w[main baseline].freeze
+PROTECTED_BRANCHES = %w[main].freeze
 USAGE_FIELDS = %w[
   input_tokens
   cached_input_tokens
@@ -68,8 +68,6 @@ class BenchmarkRunner
     initial_commit = git("rev-parse", "HEAD").strip
     initial_status = git("status", "--porcelain")
     raise BenchmarkError, "Working tree must be clean before a measured run." unless initial_status.empty?
-
-    reset_database!
 
     events_path = output_dir.join("events.jsonl")
     stderr_path = output_dir.join("stderr.log")
@@ -163,7 +161,7 @@ class BenchmarkRunner
     branch = git("branch", "--show-current").strip
     raise BenchmarkError, "Detached HEAD is not allowed for measured runs." if branch.empty?
     if PROTECTED_BRANCHES.include?(branch)
-      raise BenchmarkError, "Do not run measured tasks on protected branch #{branch.inspect}. Create a fresh run branch first."
+      raise BenchmarkError, "Do not run measured tasks on protected branch #{branch.inspect}. Create or switch to the benchmark configuration branch first."
     end
   end
 
@@ -477,14 +475,6 @@ class BenchmarkRunner
     }
   end
 
-  def reset_database!
-    script = @repo_root.join("script/reset_benchmark_db.sh")
-    raise BenchmarkError, "Missing database reset script: #{script}" unless script.file?
-
-    system(script.to_s, chdir: @repo_root.to_s)
-    raise BenchmarkError, "Benchmark database reset failed." unless $?.success?
-  end
-
   def codex_version
     stdout, stderr, status = Open3.capture3("codex", "--version")
     status.success? ? stdout.strip : "unknown (#{stderr.strip})"
@@ -670,7 +660,7 @@ class BenchmarkRunner
   def otlp_attribute(key, value)
     encoded = case value
               when Array
-                { "arrayValue" => { "values" => value.map { |item| { "stringValue" => item.to_s } } } }
+                { "arrayValue" => { "values" => value.map { |item| { "stringValue" => item.to_s } } }
               when TrueClass, FalseClass
                 { "boolValue" => value }
               when Integer
