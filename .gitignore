@@ -34,4 +34,4 @@
 /config/*.key
 
 # dumps
-benchmark/snapshots/*
+/benchmark/snapshots/*.dump
