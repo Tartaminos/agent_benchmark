@@ -48,15 +48,22 @@ Internal Rails database IDs must not be exposed in the interface.
 
 ## Delivery Status
 
-Use the same business definition established by the application for delivery classification:
+Derive the delivery status directly from the order data:
 
 ```text
 pending
+→ delivered_customer_at IS NULL
+
 on_time
+→ delivered_customer_at IS NOT NULL
+  AND delivered_customer_at <= estimated_delivery_at
+
 late
+→ delivered_customer_at IS NOT NULL
+  AND delivered_customer_at > estimated_delivery_at
 ```
 
-The value shown in the interface must be derived from order data and must not be stored as duplicated imported data.
+The value must be derived from order data and must not be stored as duplicated imported data.
 
 ---
 
