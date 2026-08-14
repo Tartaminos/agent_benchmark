@@ -69,8 +69,6 @@ class BenchmarkRunner
     initial_status = git("status", "--porcelain")
     raise BenchmarkError, "Working tree must be clean before a measured run." unless initial_status.empty?
 
-    reset_database!
-
     events_path = output_dir.join("events.jsonl")
     stderr_path = output_dir.join("stderr.log")
     final_message_path = output_dir.join("final_message.txt")
