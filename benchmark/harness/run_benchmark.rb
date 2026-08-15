@@ -74,11 +74,11 @@ class BenchmarkRunner
     final_message_path = output_dir.join("final_message.txt")
 
     prompt = build_prompt(task_path)
-    command = codex_command(prompt, final_message_path, image_path)
+    command = codex_command(final_message_path, image_path)
 
     started_wall = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     started_at = Time.now.utc
-    exit_code = execute_codex(command, events_path, stderr_path)
+    exit_code = execute_codex(command, prompt, events_path, stderr_path)
     ended_at = Time.now.utc
     wall_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_wall
 
@@ -161,7 +161,7 @@ class BenchmarkRunner
     branch = git("branch", "--show-current").strip
     raise BenchmarkError, "Detached HEAD is not allowed for measured runs." if branch.empty?
     if PROTECTED_BRANCHES.include?(branch)
-      raise BenchmarkError, "Do not run measured tasks on protected branch #{branch.inspect}. Create or switch to the benchmark configuration branch first."
+      raise BenchmarkError, "Do not run measured tasks on protected branch #{branch.inspect}. Create a fresh run branch first."
     end
   end
 
@@ -198,7 +198,7 @@ class BenchmarkRunner
     "$software-development-workflow Execute the benchmark task defined in #{relative_task}. Complete the entire workflow autonomously."
   end
 
-  def codex_command(prompt, final_message_path, image_path)
+  def codex_command(final_message_path, image_path)
     command = [
       "codex", "exec",
       "--json",
@@ -208,20 +208,31 @@ class BenchmarkRunner
       "--output-last-message", final_message_path.to_s
     ]
     command.concat(["--image", image_path.to_s]) if image_path
-    command << prompt
+    command << "-"
     command
   end
 
-  def execute_codex(command, events_path, stderr_path)
+  def execute_codex(command, prompt, events_path, stderr_path)
     File.open(events_path, "w") do |events|
       File.open(stderr_path, "w") do |stderr_file|
         Open3.popen3(*command, chdir: @repo_root.to_s) do |stdin, stdout, stderr, wait_thread|
-          stdin.close
+          begin
+            stdin.write(prompt)
+          rescue Errno::EPIPE, IOError
+            # Codex may close stdin immediately when startup fails; stderr captures the cause.
+          ensure
+            stdin.close unless stdin.closed?
+          end
+
           stderr_reader = Thread.new do
-            stderr.each_line do |line|
-              stderr_file.write(line)
-              stderr_file.flush
-              warn line.rstrip
+            begin
+              stderr.each_line do |line|
+                stderr_file.write(line)
+                stderr_file.flush
+                warn line.rstrip
+              end
+            rescue IOError
+              # Expected when the parent process is interrupted and closes the stream.
             end
           end
 
@@ -475,6 +486,14 @@ class BenchmarkRunner
     }
   end
 
+  def reset_database!
+    script = @repo_root.join("script/reset_benchmark_db.sh")
+    raise BenchmarkError, "Missing database reset script: #{script}" unless script.file?
+
+    system(script.to_s, chdir: @repo_root.to_s)
+    raise BenchmarkError, "Benchmark database reset failed." unless $?.success?
+  end
+
   def codex_version
     stdout, stderr, status = Open3.capture3("codex", "--version")
     status.success? ? stdout.strip : "unknown (#{stderr.strip})"
@@ -660,7 +679,7 @@ class BenchmarkRunner
   def otlp_attribute(key, value)
     encoded = case value
               when Array
-                { "arrayValue" => { "values" => value.map { |item| { "stringValue" => item.to_s } } }
+                { "arrayValue" => { "values" => value.map { |item| { "stringValue" => item.to_s } } } }
               when TrueClass, FalseClass
                 { "boolValue" => value }
               when Integer
