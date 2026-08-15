@@ -1,0 +1,225 @@
+<% content_for :title, "Orders | Olist Admin" %>
+
+<div class="admin-orders <%= "admin-orders--with-detail" if @detail_order || @detail_unavailable %>">
+  <aside class="admin-orders__rail" aria-label="Admin navigation">
+    <div class="admin-orders__brand">
+      <span class="admin-orders__brand-mark" aria-hidden="true">O</span>
+      <span>Olist Admin</span>
+    </div>
+    <nav aria-label="Primary navigation">
+      <span class="admin-orders__nav-link" aria-current="page">
+        <span aria-hidden="true">▤</span>
+        <span>Orders</span>
+      </span>
+    </nav>
+  </aside>
+
+  <main class="admin-orders__main" id="main-content">
+    <header class="admin-orders__heading">
+      <div>
+        <p class="admin-orders__eyebrow">Olist dataset</p>
+        <h1>Orders</h1>
+        <p>Browse and inspect customer orders.</p>
+      </div>
+    </header>
+
+    <section class="admin-orders__filters" aria-labelledby="filters-title">
+      <h2 id="filters-title" class="admin-orders__section-title">Filter orders</h2>
+
+      <% if @filter_errors.any? %>
+        <div class="admin-orders__alert" id="filter-errors" role="alert">
+          <strong>Some filters could not be applied.</strong>
+          <ul>
+            <% @filter_errors.uniq.each do |error| %>
+              <li><%= error %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <%= form_with url: admin_orders_path, method: :get, class: "admin-orders__filter-form" do |form| %>
+        <%= hidden_field_tag :sort, @sort, id: nil %>
+
+        <div class="admin-orders__field admin-orders__field--wide">
+          <%= form.label :order_id, "Order ID" %>
+          <%= form.search_field :order_id, value: @filters[:order_id], placeholder: "Enter the exact external order ID", autocomplete: "off", **admin_filter_error_attributes(:order_id, @invalid_filter_fields) %>
+        </div>
+
+        <div class="admin-orders__field">
+          <%= form.label :status, "Order status" %>
+          <%= form.select :status, options_for_select(Admin::OrdersController::ORDER_STATUSES.map { |status| [admin_status_label(status), status] }, @filters[:status]), { include_blank: "All statuses" }, admin_filter_error_attributes(:status, @invalid_filter_fields) %>
+        </div>
+
+        <div class="admin-orders__field">
+          <%= form.label :delivery_status, "Delivery status" %>
+          <%= form.select :delivery_status, options_for_select(Order::DELIVERY_STATUSES.map { |status| [admin_status_label(status), status] }, @filters[:delivery_status]), { include_blank: "All delivery statuses" }, admin_filter_error_attributes(:delivery_status, @invalid_filter_fields) %>
+        </div>
+
+        <div class="admin-orders__field">
+          <%= form.label :customer_state, "Customer state" %>
+          <%= form.select :customer_state, options_for_select(Admin::OrdersController::CUSTOMER_STATES, @filters[:customer_state]), { include_blank: "All states" }, admin_filter_error_attributes(:customer_state, @invalid_filter_fields) %>
+        </div>
+
+        <fieldset class="admin-orders__date-range">
+          <legend>Purchase date range</legend>
+          <div class="admin-orders__field">
+            <%= form.label :start_date, "From" %>
+            <%= form.date_field :start_date, value: @filters[:start_date], **admin_filter_error_attributes(:start_date, @invalid_filter_fields) %>
+          </div>
+
+          <div class="admin-orders__field">
+            <%= form.label :end_date, "Through" %>
+            <%= form.date_field :end_date, value: @filters[:end_date], **admin_filter_error_attributes(:end_date, @invalid_filter_fields) %>
+          </div>
+        </fieldset>
+
+        <div class="admin-orders__filter-actions">
+          <% if @filters_active %>
+            <%= link_to "Clear filters", admin_orders_path(sort: @sort), class: "admin-orders__button admin-orders__button--secondary" %>
+          <% end %>
+          <%= form.submit "Apply filters", class: "admin-orders__button admin-orders__button--primary", data: { turbo_submits_with: "Applying…" } %>
+        </div>
+      <% end %>
+    </section>
+
+    <% if @detail_order || @detail_unavailable %>
+      <aside class="admin-orders__detail" aria-labelledby="order-detail-title">
+        <header class="admin-orders__detail-header" id="order-details" tabindex="-1">
+          <h2 id="order-detail-title"><%= @detail_order ? "Order details" : "Details unavailable" %></h2>
+          <%= link_to "Close", admin_orders_path(@navigation_params.merge(page: @page)), class: "admin-orders__close" %>
+        </header>
+
+        <% if @detail_unavailable %>
+          <div class="admin-orders__empty admin-orders__empty--detail" role="status">
+            <h3>Order details could not be found</h3>
+            <p>The requested external order ID is invalid or is no longer available.</p>
+          </div>
+        <% else %>
+          <p class="admin-orders__detail-id"><span>External order ID</span><strong><%= @detail_order.order_id %></strong></p>
+
+          <section class="admin-orders__detail-card" aria-labelledby="summary-title">
+            <h3 id="summary-title">Order summary</h3>
+            <dl>
+              <div><dt>Order status</dt><dd><span class="admin-orders__badge admin-orders__badge--<%= @detail_order.status %>"><%= admin_status_label(@detail_order.status) %></span></dd></div>
+              <div><dt>Delivery status</dt><dd><span class="admin-orders__badge admin-orders__badge--<%= @detail_order.delivery_status %>"><%= admin_status_label(@detail_order.delivery_status) %></span></dd></div>
+              <div><dt>Purchased</dt><dd><%= admin_time(@detail_order.purchase_at) %></dd></div>
+              <div><dt>Estimated delivery</dt><dd><%= admin_time(@detail_order.estimated_delivery_at) %></dd></div>
+              <div><dt>Delivered to customer</dt><dd><%= admin_time(@detail_order.delivered_customer_at) %></dd></div>
+            </dl>
+          </section>
+
+          <section class="admin-orders__detail-card" aria-labelledby="customer-title">
+            <h3 id="customer-title">Customer</h3>
+            <dl>
+              <div><dt>Customer ID</dt><dd class="admin-orders__break"><%= @detail_order.customer.customer_id %></dd></div>
+              <div><dt>Customer unique ID</dt><dd class="admin-orders__break"><%= @detail_order.customer.customer_unique_id %></dd></div>
+              <div><dt>City</dt><dd><%= @detail_order.customer.city %></dd></div>
+              <div><dt>State</dt><dd><%= @detail_order.customer.state %></dd></div>
+            </dl>
+          </section>
+
+          <section class="admin-orders__detail-card" aria-labelledby="totals-title">
+            <h3 id="totals-title">Totals</h3>
+            <dl>
+              <div><dt>Items total</dt><dd><%= admin_currency(@detail_items_total) %></dd></div>
+              <div><dt>Freight total</dt><dd><%= admin_currency(@detail_freight_total) %></dd></div>
+              <div><dt>Order total</dt><dd><strong><%= admin_currency(@detail_order_total) %></strong></dd></div>
+              <div><dt>Paid total</dt><dd><%= admin_currency(@detail_paid_total) %></dd></div>
+            </dl>
+          </section>
+        <% end %>
+      </aside>
+    <% end %>
+
+    <section class="admin-orders__results" aria-labelledby="results-title">
+      <div class="admin-orders__toolbar">
+        <div>
+          <h2 id="results-title">Order results</h2>
+          <p><%= number_with_delimiter(@total_orders) %> <%= "order".pluralize(@total_orders) %></p>
+        </div>
+
+        <%= form_with url: admin_orders_path, method: :get, class: "admin-orders__sort-form" do |form| %>
+          <% @filters.each do |name, value| %>
+            <%= hidden_field_tag name, value, id: nil if value.present? %>
+          <% end %>
+          <%= form.label :sort, "Purchase date", for: "purchase-sort" %>
+          <%= form.select :sort, options_for_select([["Newest first", "desc"], ["Oldest first", "asc"]], @sort), {}, admin_filter_error_attributes(:sort, @invalid_filter_fields).merge(id: "purchase-sort") %>
+          <%= form.submit "Apply sort", class: "admin-orders__button admin-orders__button--secondary", data: { turbo_submits_with: "Applying…" } %>
+        <% end %>
+      </div>
+
+      <% if @orders.any? %>
+        <div class="admin-orders__table-scroll" tabindex="0" role="region" aria-label="Orders table. Scroll horizontally to see all columns on small screens.">
+          <table>
+            <caption class="visually-hidden">Orders matching the current filters</caption>
+            <thead>
+              <tr>
+                <th scope="col">Order ID</th>
+                <th scope="col">State</th>
+                <th scope="col">Order status</th>
+                <th scope="col">Delivery status</th>
+                <th scope="col">Purchased</th>
+                <th scope="col">Estimated</th>
+                <th scope="col">Delivered</th>
+                <th scope="col">Total</th>
+                <th scope="col" class="admin-orders__actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @orders.each do |order| %>
+                <tr>
+                  <th scope="row"><span class="admin-orders__order-id" title="<%= order.order_id %>"><%= order.order_id %></span></th>
+                  <td><%= order.customer.state %></td>
+                  <td><span class="admin-orders__badge admin-orders__badge--<%= order.status %>"><%= admin_status_label(order.status) %></span></td>
+                  <td><span class="admin-orders__badge admin-orders__badge--<%= order.delivery_status %>"><%= admin_status_label(order.delivery_status) %></span></td>
+                  <td><%= admin_time(order.purchase_at) %></td>
+                  <td><%= admin_time(order.estimated_delivery_at, date_only: true) %></td>
+                  <td><%= admin_time(order.delivered_customer_at, date_only: true) %></td>
+                  <td class="admin-orders__money"><%= admin_currency(@order_totals[order.id]) %></td>
+                  <td class="admin-orders__actions">
+                    <%= link_to "View details", admin_orders_path(@navigation_params.merge(page: @page, details_order_id: order.order_id, anchor: "order-details")), class: "admin-orders__view-link", aria: { label: "View details for order #{order.order_id}" } %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+
+        <% if @total_pages > 1 %>
+          <nav class="admin-orders__pagination" aria-label="Orders pagination">
+            <% if @page > 1 %>
+              <%= link_to "Previous", admin_orders_path(@navigation_params.merge(page: @page - 1)), rel: "prev" %>
+            <% end %>
+
+            <% previous_page = nil %>
+            <% admin_pagination_pages(@page, @total_pages).each do |page| %>
+              <% if previous_page && page > previous_page + 1 %><span aria-hidden="true">…</span><% end %>
+              <% if page == @page %>
+                <span class="admin-orders__current-page" aria-current="page"><span class="visually-hidden">Page </span><%= page %></span>
+              <% else %>
+                <%= link_to page, admin_orders_path(@navigation_params.merge(page: page)), aria: { label: "Page #{page}" } %>
+              <% end %>
+              <% previous_page = page %>
+            <% end %>
+
+            <% if @page < @total_pages %>
+              <%= link_to "Next", admin_orders_path(@navigation_params.merge(page: @page + 1)), rel: "next" %>
+            <% end %>
+          </nav>
+        <% end %>
+      <% elsif @dataset_empty %>
+        <div class="admin-orders__empty">
+          <h3>No orders are available</h3>
+          <p>The Olist dataset does not contain any imported orders yet.</p>
+        </div>
+      <% else %>
+        <div class="admin-orders__empty">
+          <h3>No orders match these filters</h3>
+          <p>Adjust the current filters or clear them to return to the full order list.</p>
+          <% if @filters_active %><%= link_to "Clear filters", admin_orders_path(sort: @sort) %><% end %>
+        </div>
+      <% end %>
+    </section>
+  </main>
+
+</div>
