@@ -4,6 +4,189 @@ module Api
   class OrdersTest < ActionDispatch::IntegrationTest
     self.fixture_table_names = []
 
+    test "lists every delivery classification with the exact public contract and default pagination" do
+      customer = create_customer
+      purchase_at = Time.utc(2017, 10, 2, 10, 56, 33)
+      estimated_at = Time.utc(2017, 10, 18)
+      create_order(
+        customer: customer,
+        order_id: "pending-order",
+        purchase_at: purchase_at + 3.minutes,
+        estimated_delivery_at: estimated_at,
+        delivered_customer_at: nil
+      )
+      create_order(
+        customer: customer,
+        order_id: "on-time-at-boundary",
+        purchase_at: purchase_at + 2.minutes,
+        estimated_delivery_at: estimated_at,
+        delivered_customer_at: estimated_at
+      )
+      create_order(
+        customer: customer,
+        order_id: "on-time-before-boundary",
+        purchase_at: purchase_at + 1.minute,
+        estimated_delivery_at: estimated_at,
+        delivered_customer_at: estimated_at - 1.second
+      )
+      create_order(
+        customer: customer,
+        order_id: "late-order",
+        purchase_at: purchase_at,
+        estimated_delivery_at: estimated_at,
+        delivered_customer_at: estimated_at + 1.second
+      )
+
+      get "/api/orders"
+
+      assert_response :ok
+      assert_equal "application/json", response.media_type
+      body = response.parsed_body
+      assert_equal %w[orders page per_page total_orders total_pages], body.keys.sort
+      assert_equal 1, body["page"]
+      assert_equal 25, body["per_page"]
+      assert_equal 4, body["total_orders"]
+      assert_equal 1, body["total_pages"]
+      assert_equal(
+        %w[pending-order on-time-at-boundary on-time-before-boundary late-order],
+        body.fetch("orders").pluck("order_id")
+      )
+
+      orders_by_id = body.fetch("orders").index_by { |order| order.fetch("order_id") }
+      assert_equal "pending", orders_by_id.fetch("pending-order").fetch("delivery_status")
+      assert_nil orders_by_id.fetch("pending-order")["delivered_customer_at"]
+      assert_equal "on_time", orders_by_id.fetch("on-time-at-boundary").fetch("delivery_status")
+      assert_equal "on_time", orders_by_id.fetch("on-time-before-boundary").fetch("delivery_status")
+      assert_equal "late", orders_by_id.fetch("late-order").fetch("delivery_status")
+
+      orders_by_id.each_value do |order|
+        assert_equal %w[
+          delivered_customer_at delivery_status estimated_delivery_at order_id purchase_at status
+        ], order.keys.sort
+      end
+      assert_equal "2017-10-18T00:00:00.000Z",
+        orders_by_id.fetch("on-time-at-boundary").fetch("estimated_delivery_at")
+      assert_equal "2017-10-18T00:00:00.000Z",
+        orders_by_id.fetch("on-time-at-boundary").fetch("delivered_customer_at")
+    end
+
+    test "filters each classification and calculates metadata from only matching orders" do
+      customer = create_customer
+      estimated_at = Time.utc(2017, 10, 18)
+      classifications = {
+        "pending" => [ nil, nil ],
+        "on_time" => [ estimated_at - 1.second, estimated_at ],
+        "late" => [ estimated_at + 1.second, estimated_at + 1.day ]
+      }
+
+      classifications.each do |status, delivered_times|
+        delivered_times.each_with_index do |delivered_at, index|
+          create_order(
+            customer: customer,
+            order_id: "#{status}-#{index}",
+            purchase_at: Time.utc(2017, 10, 2) + index.minutes,
+            estimated_delivery_at: estimated_at,
+            delivered_customer_at: delivered_at
+          )
+        end
+      end
+
+      classifications.each_key do |status|
+        get "/api/orders", params: { delivery_status: status, page: 2, per_page: 1 }
+
+        assert_response :ok
+        body = response.parsed_body
+        assert_equal 2, body["page"]
+        assert_equal 1, body["per_page"]
+        assert_equal 2, body["total_orders"]
+        assert_equal 2, body["total_pages"]
+        assert_equal [ status ], body.fetch("orders").pluck("delivery_status").uniq
+        assert_equal [ "#{status}-0" ], body.fetch("orders").pluck("order_id")
+      end
+    end
+
+    test "applies delivery status filtering in SQL" do
+      create_order(customer: create_customer, order_id: "pending-order", delivered_customer_at: nil)
+
+      statements = capture_select_sql do
+        get "/api/orders", params: { delivery_status: "pending" }
+      end
+
+      assert_response :ok
+      order_queries = statements.grep(/FROM "orders"/)
+      assert_operator order_queries.size, :>=, 2
+      assert order_queries.all? { |sql| sql.match?(/"orders"\."delivered_customer_at" IS NULL/) },
+        "expected count and page queries to filter delivered_customer_at in SQL: #{order_queries.inspect}"
+    end
+
+    test "rejects unsupported scalar and structured delivery statuses" do
+      [ "unknown", "", [ "pending" ], { value: "pending" } ].each do |delivery_status|
+        get "/api/orders", params: { delivery_status: delivery_status }
+
+        assert_response :unprocessable_content
+        assert_equal({ "error" => "invalid_delivery_status" }, response.parsed_body)
+        assert_equal [ "error" ], response.parsed_body.keys
+      end
+    end
+
+    test "paginates deterministically and accepts the maximum page size" do
+      customer = create_customer
+      purchase_at = Time.utc(2017, 10, 2)
+      create_order(customer: customer, order_id: "order-b", purchase_at: purchase_at)
+      create_order(customer: customer, order_id: "order-a", purchase_at: purchase_at)
+      create_order(customer: customer, order_id: "order-newest", purchase_at: purchase_at + 1.minute)
+
+      get "/api/orders", params: { page: 1, per_page: 2 }
+      first_page = response.parsed_body
+      get "/api/orders", params: { page: 2, per_page: 2 }
+      second_page = response.parsed_body
+      get "/api/orders", params: { page: 2, per_page: 100 }
+      maximum_page = response.parsed_body
+
+      assert_equal %w[order-newest order-a], first_page.fetch("orders").pluck("order_id")
+      assert_equal [ "order-b" ], second_page.fetch("orders").pluck("order_id")
+      assert_equal 3, second_page["total_orders"]
+      assert_equal 2, second_page["total_pages"]
+      assert_equal 2, maximum_page["page"]
+      assert_equal 100, maximum_page["per_page"]
+      assert_equal 1, maximum_page["total_pages"]
+      assert_equal [], maximum_page["orders"]
+    end
+
+    test "rejects malformed pagination and page sizes above the maximum" do
+      invalid_parameters = [
+        { page: "0" },
+        { page: "-1" },
+        { page: "abc" },
+        { page: "1.5" },
+        { page: " 1" },
+        { page: [ "1" ] },
+        { per_page: "0" },
+        { per_page: "-1" },
+        { per_page: "101" },
+        { per_page: "abc" },
+        { per_page: { value: "25" } }
+      ]
+
+      invalid_parameters.each do |parameters|
+        get "/api/orders", params: parameters
+
+        assert_response :unprocessable_content, "expected #{parameters.inspect} to be rejected"
+        assert_equal({ "error" => "invalid_pagination" }, response.parsed_body)
+      end
+    end
+
+    test "returns zero filtered totals for an empty result set" do
+      create_order(customer: create_customer, order_id: "pending-order", delivered_customer_at: nil)
+
+      get "/api/orders", params: { delivery_status: "late" }
+
+      assert_response :ok
+      assert_equal 0, response.parsed_body["total_orders"]
+      assert_equal 0, response.parsed_body["total_pages"]
+      assert_equal [], response.parsed_body["orders"]
+    end
+
     test "returns the complete order contract by external order id" do
       customer = create_customer(
         customer_id: "customer-public-id",
@@ -195,6 +378,20 @@ module Api
     end
 
     private
+
+    def capture_select_sql
+      ActiveRecord::Base.connection.clear_query_cache
+      statements = []
+      subscriber = lambda do |_name, _started, _finished, _unique_id, payload|
+        next if payload[:name] == "SCHEMA" || payload[:cached]
+        next unless payload[:sql].match?(/\ASELECT\b/i)
+
+        statements << payload[:sql]
+      end
+
+      ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") { yield }
+      statements
+    end
 
     def create_customer(attributes = {})
       Customer.create!({
