@@ -5,6 +5,10 @@ Rails.application.routes.draw do
 
   namespace :api, defaults: { format: :json } do
     get "sellers/:seller_id/orders", to: "seller_orders#index"
+    post "sellers/:seller_id/reports", to: "seller_performance_reports#create"
+    resources :reports, only: :show, param: :report_id do
+      get :download, on: :member
+    end
     resources :orders, only: %i[index show], param: :order_id
   end
 
