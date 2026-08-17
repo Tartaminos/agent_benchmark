@@ -1,6 +1,6 @@
 ---
 name: software-development-workflow
-description: Orchestrate meaningful production software changes through architect, UI/UX, coder, test-engineer, reviewer, and QA agents with explicit gates, handoffs, context slicing, and correction routing.
+description: Orchestrate meaningful production software changes through architect, UI/UX, coder, test-engineer, reviewer, and QA agents with explicit gates, compact handoffs, context slicing, and correction routing.
 ---
 
 # Software Development Workflow
@@ -82,6 +82,8 @@ Before production specialists, define:
 Scope Lock is binding. Unrelated findings are reported separately unless necessary for safe task completion; do not silently expand implementation.
 
 Discovery also resolves applicable instructions/skills, source docs, affected repository areas, git state, task modifiers, and required agents. It prepares context; it does not replace specialist analysis.
+
+Discovery is progressive and question-driven. Start with the nearest relevant implementation, one healthy analogous pattern when useful, and directly relevant tests/configuration. Stop once the active specialist can support its owned decisions with concrete evidence and no material unresolved ambiguity. Expand one dependency/boundary ring only to answer a specific unresolved question or material risk; do not scan additional areas merely for completeness. Do not impose a fixed file-count limit when more evidence is genuinely required.
 
 ---
 
@@ -168,6 +170,8 @@ Expected records:
 - `qa-engineer` → QA Handoff.
 
 A full handoff is a canonical workflow record, not the default prompt for the next specialist.
+
+Handoffs are compact by default. Put the verdict first, use short field/value lines or bullets, prefer references over copied evidence, omit irrelevant optional fields or mark them once as `None`, and do not repeat Scope Lock or upstream context. Successful gates stay terse; spend detail on findings, blockers, residual risks, non-obvious decisions, and executed evidence. Never compress away information required for routing, revalidation, or safety.
 
 Build each invocation from this generic Context Slice shape, omitting empty or irrelevant fields:
 
@@ -318,7 +322,7 @@ Prefer primary/normative context over previous-agent interpretation. For indepen
 
 Prefer pointers over copied payload when the specialist can inspect the source directly. Use repository paths, symbols, ADR/spec references, commit/diff references, and runtime instructions instead of reproducing large source documents, diffs, logs, or prior handoffs inline.
 
-Do not resend information that the specialist can cheaply discover locally unless it is an authoritative decision, required constraint, unresolved finding, or evidence needed for the gate.
+Do not resend information that the specialist can cheaply discover locally unless it is an authoritative decision, required constraint, unresolved finding, or evidence needed for the gate. Do not promote raw exploration notes into downstream context unless they became a decision, constraint, finding, risk, or required evidence.
 
 Use these primary consumer slices:
 
@@ -417,4 +421,4 @@ Use `COMPLETE_WITH_KNOWN_RISKS` only for explicit accepted non-blocking residual
 ## Files / Scope
 <changed areas and scope status>
 
-Do not stop after implementation or the first defect. Route, correct, and revalidate until COMPLETE or BLOCKED.
+Keep the final workflow handoff compact: summarize successful gates, expand only material limitations/findings/risks, and never replay specialist handoffs. Do not stop after implementation or the first defect. Route, correct, and revalidate until COMPLETE or BLOCKED.
