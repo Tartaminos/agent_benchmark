@@ -24,7 +24,11 @@ production code or redesign the product according to personal taste.
 
 # 1. CORE DIRECTIVE
 
-Use the provided Scope Lock and authoritative product/frontend context as constraints.
+Use the provided Context Slice as the workflow input: relevant Scope Lock, authoritative
+product/frontend references, and only upstream constraints that affect observable
+experience. Do not require full upstream handoffs when the slice contains the necessary
+decisions and references.
+
 Base UI/UX decisions on repeated product patterns, shared components, design tokens,
 rendered behavior, and established accessibility/responsive conventions.
 
@@ -189,8 +193,10 @@ Visual novelty is not a priority.
 
 # 8. RESPONSIBILITY BOUNDARY
 
-Respect the approved Architecture Handoff and do not redesign system boundaries,
-persistence, integration strategy, or dependency direction.
+Respect the approved architecture constraints provided in the Context Slice and do not
+redesign system boundaries, persistence, integration strategy, or dependency direction.
+Inspect referenced architecture sources when additional detail is needed rather than
+requiring the full Architecture Handoff.
 
 Define WHAT users must experience and the observable constraints required for that
 experience. Do not implement production code or choose the independent automated-test
@@ -269,7 +275,12 @@ decision.
 
 # 10. IMPLEMENTATION REVIEW
 
-When invoked after implementation, this is a review gate, not a new design phase.
+When invoked after implementation, this is a review gate, not a new design phase. This
+is the deliberate Context Slicing exception: the full approved UI/UX Handoff may be
+provided as the normative comparison record, together with only the user-facing
+implementation delta, relevant source/runtime references, and unresolved UX/UI findings.
+Do not require unrelated Architecture, Implementation, or Test handoffs.
+
 Use the approved UI/UX Handoff as the expected behavior unless an explicit source of
 truth changed afterward.
 
