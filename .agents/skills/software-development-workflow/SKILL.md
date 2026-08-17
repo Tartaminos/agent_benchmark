@@ -1,11 +1,11 @@
 ---
 name: software-development-workflow
-description: Orchestrate meaningful production software changes through architect, UI/UX, coder, test-engineer, reviewer, and QA agents with explicit gates, handoffs, and correction routing.
+description: Orchestrate meaningful production software changes through architect, UI/UX, coder, test-engineer, reviewer, and QA agents with explicit gates, handoffs, context slicing, and correction routing.
 ---
 
 # Software Development Workflow
 
-The main Codex thread is the ORCHESTRATOR. It coordinates specialized agents; specialists perform their owned engineering work. The goal is a scoped, coherent implementation with independent automated testing, review, runtime validation when applicable, and controlled correction loops.
+The main Codex thread is the ORCHESTRATOR. It coordinates specialized agents; specialists perform their owned engineering work. The goal is a scoped, coherent implementation with independent automated testing, review, runtime validation when applicable, controlled correction loops, and minimal non-transitive context between agents.
 
 ---
 
@@ -20,7 +20,7 @@ Use these exact roles:
 - `reviewer` — independent implementation/diff and test review.
 - `qa-engineer` — realistic runtime/product validation.
 
-The orchestrator owns task/repository discovery, source-of-truth resolution, Scope Lock, agent applicability/spawning, workflow state, handoff preservation, correction routing, gate decisions, and final consolidation. It may inspect repository evidence and run non-mutating discovery needed for coordination.
+The orchestrator owns task/repository discovery, source-of-truth resolution, Scope Lock, agent applicability/spawning, workflow state, context ledger, context slicing, handoff preservation, correction routing, gate decisions, and final consolidation. It may inspect repository evidence and run non-mutating discovery needed for coordination.
 
 It must not silently replace a required specialist or perform that specialist's owned work. If a required specialist is unavailable, its required gate is BLOCKED.
 
@@ -110,7 +110,7 @@ When uncertain about QA, prefer targeted QA over skipping. Use the smallest pipe
 
 ---
 
-# 6. WORKFLOW STATE MACHINE
+# 6. WORKFLOW STATE MACHINE AND CONTEXT LEDGER
 
 Track exactly one state:
 
@@ -128,29 +128,70 @@ BLOCKED
 
 Preserve current state, last passed gate, active specialist, unresolved findings, correction count, and next required gate.
 
+Also maintain a canonical Workflow Context Ledger containing, as applicable:
+
+- Scope Lock;
+- authoritative source references;
+- accepted architecture decisions;
+- accepted UI/UX decisions;
+- current implementation state;
+- automated-test evidence;
+- UI/UX implementation-review result;
+- reviewer findings;
+- QA evidence;
+- current repository/diff/runtime state;
+- unresolved findings;
+- accepted residual risks.
+
+Full specialist handoffs belong to the ledger. Specialists do not receive the ledger itself; each invocation receives a consumer-specific Context Slice derived from it.
+
+The ledger is orchestration state, not a repository artifact. Do not create a persistent ledger file unless explicitly requested.
+
 Normal progression follows the applicable pipeline. A failed gate enters CORRECTION and routes to the earliest owned decision/work that must change. Resume from the earliest invalidated gate; never restart unaffected earlier gates. A blocked required gate prevents completion.
 
 After the user invokes this workflow, progress automatically through all applicable gates and correction loops. Do not ask permission between routine stages. `IMPLEMENTATION_COMPLETE` is not workflow completion. Stop only at COMPLETE or BLOCKED.
 
 ---
 
-# 7. SPECIALIST HANDOFFS
+# 7. HANDOFF RECORDS AND CONTEXT SLICES
 
-Pass each specialist only relevant distilled Scope Lock, authoritative constraints, required upstream handoffs, current repository/diff state, and unresolved findings.
+Each specialist owns the detailed schema of its output. The orchestrator preserves full handoffs in the Workflow Context Ledger, interprets their verdicts, and builds downstream Context Slices without silently rewriting specialist decisions.
 
-Each specialist owns the detailed schema of its output. The orchestrator owns preserving, routing, and interpreting that output without silently rewriting specialist decisions.
-
-Expected outputs:
+Expected records:
 
 - `architect` → Architecture Handoff.
 - `ui-ux-engineer` design invocation → UI/UX Handoff.
 - `coder` → Implementation Handoff.
 - `test-engineer` → Test Handoff.
-- `ui-ux-engineer` implementation-review invocation → UI/UX review verdict.
+- `ui-ux-engineer` implementation-review invocation → UI/UX review verdict/findings.
 - `reviewer` → Review Handoff.
 - `qa-engineer` → QA Handoff.
 
-Do not force downstream specialists to rediscover decisions already established upstream. Do not infer or fabricate a handoff/verdict that its responsible specialist did not produce.
+A full handoff is a canonical workflow record, not the default prompt for the next specialist.
+
+Build each invocation from this generic Context Slice shape, omitting empty or irrelevant fields:
+
+## Context Slice
+
+### Scope
+<only task behavior relevant to this specialist>
+
+### Constraints
+<only authoritative/upstream decisions this specialist must preserve>
+
+### Source References
+<paths, symbols, docs, commits, diffs, or runtime references to inspect when needed>
+
+### Current State
+<only implementation/diff/runtime state relevant to this gate>
+
+### Open Findings
+<only unresolved findings this specialist owns or must revalidate>
+
+### Evidence / Risks
+<only evidence or residual risks required for this gate>
+
+Do not infer or fabricate a handoff/verdict that its responsible specialist did not produce.
 
 ---
 
@@ -219,6 +260,27 @@ For specialized finding labels such as accessibility defects, route by root caus
 
 After correction, rerun only invalidated and required downstream gates. Preserve approved upstream decisions unless the correction invalidates them.
 
+For correction invocations, build a Correction Slice instead of replaying historical context:
+
+## Correction Slice
+
+### Finding
+<specific unresolved finding>
+
+### Evidence
+<minimum reproduction/evidence>
+
+### Affected Behavior / Constraint
+<what must remain true>
+
+### Current State
+<affected files/diff/runtime state>
+
+### Required Outcome
+<what this specialist must correct or clarify>
+
+For re-review, pass previous blocking findings, the correction delta, affected validation/test evidence, and only upstream decisions invalidated by the correction. For QA retest, pass the original defect/reproduction, expected corrected behavior, corrected delta, nearby regression target, runtime instructions, and relevant new automated evidence.
+
 ---
 
 # 10. TASK MODIFIERS
@@ -248,13 +310,40 @@ The selected spec/slice is Scope Lock. Implement only required missing/incorrect
 
 ---
 
-# 11. HANDOFF AND CONTEXT HYGIENE
+# 11. CONTEXT SLICING
 
-Preserve decisions and unresolved findings across gates.
+Context is not transitive. Do not forward information merely because an upstream specialist received or produced it. Rebuild every invocation from the Workflow Context Ledger for the current consumer.
 
-Pass the smallest relevant set of Scope Lock, source constraints, required upstream handoffs, current diff/tree state, unresolved findings/accepted risks, and runtime instructions when needed. Prefer distilled handoffs over raw logs. Do not flood specialists with irrelevant history.
+Prefer primary/normative context over previous-agent interpretation. For independent gates, pass the original constraint and relevant evidence rather than another agent's conclusion that the constraint was satisfied.
 
-Specialists own handoff contents; the orchestrator owns handoff transport and workflow state.
+Prefer pointers over copied payload when the specialist can inspect the source directly. Use repository paths, symbols, ADR/spec references, commit/diff references, and runtime instructions instead of reproducing large source documents, diffs, logs, or prior handoffs inline.
+
+Do not resend information that the specialist can cheaply discover locally unless it is an authoritative decision, required constraint, unresolved finding, or evidence needed for the gate.
+
+Use these primary consumer slices:
+
+- **Architect** — architecture-relevant Scope Lock, authoritative source references, task modifiers, affected surfaces, relevant repository state.
+- **UI/UX Design** — user-facing scope/product references plus only architecture constraints that affect observable behavior, available capabilities, permissions, integrations/runtime states, or UX risk.
+- **Coder** — implementation scope plus architecture placement/boundaries/constraints and applicable data/API/security impact; UI/UX flow, required states, responsive/accessibility requirements, copy/feedback, implementation constraints, and acceptance criteria.
+- **Test Engineer** — required behavior, test-relevant architecture invariants, applicable UI/UX acceptance criteria/states, implementation behavior, changed surfaces, rules/invariants, side effects, error paths, known risks, test risk areas, and relevant validation evidence.
+- **UI/UX Implementation Review** — full approved UI/UX Handoff when useful as the normative comparison record, plus user-facing implementation delta, changed UI references, render/runtime instructions, and unresolved UX/UI findings. Do not add unrelated handoffs by default.
+- **Reviewer** — scope/exclusions, normative architecture constraints, applicable UI/UX acceptance criteria/implementation constraints and review verdict, implementation orientation/known risks, relevant Test Handoff evidence, and current diff/repository references. Prefer the actual diff over the Coder's interpretation of alignment.
+- **QA** — observable required behavior/acceptance criteria, relevant product flow/states/permissions, concise implementation delta, runtime/environment/test-data instructions, and only remaining test/review/implementation risks that affect runtime validation.
+
+Do not forward historical findings wholesale. Pass only:
+1. unresolved findings owned by the current specialist;
+2. resolved findings this gate must specifically revalidate;
+3. residual risks that materially affect this specialist's work.
+
+Use three slice modes:
+
+**INITIAL SLICE** — scope, constraints, source references, relevant upstream decisions, current state, and open relevant risks.
+
+**REVIEW SLICE** — scope, normative expectations, current implementation state, relevant independent evidence, and remaining findings/risks.
+
+**CORRECTION SLICE** — specific finding, evidence, affected behavior/constraint, correction state, and required outcome.
+
+Preserve full handoffs in the ledger even when only a slice is forwarded. Context reduction must not discard canonical decisions or evidence needed by later gates.
 
 ---
 
