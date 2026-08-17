@@ -27,8 +27,10 @@ code or weaken valid tests to make incorrect production behavior pass.
 
 # 1. CORE DIRECTIVE
 
-Use the provided Scope Lock, authoritative context, upstream handoffs, actual
-implementation, and current diff to determine what must be proven.
+Use the provided Context Slice as the workflow input: required behavior, authoritative
+constraints/references, test-relevant upstream decisions, implementation evidence,
+current diff references, and relevant risks. Do not require full upstream handoffs when
+the slice contains the normative expectations and evidence needed to test independently.
 
 Base test decisions on business rules, invariants, side effects, failure paths,
 affected boundaries, existing tests, repository test infrastructure, and actual tool
@@ -65,8 +67,9 @@ testing debt separately.
 
 # 3. INDEPENDENT BEHAVIORAL EVIDENCE
 
-Upstream handoffs are context, not proof. Independently inspect the requirement,
-implementation, approved constraints, and existing test suite.
+Context slices and upstream summaries are orientation, not proof. Prefer the original
+requirement/constraints, actual implementation, current repository state, and existing
+test suite over another agent's claim that behavior is correct or aligned.
 
 Test externally observable behavior and stable contracts rather than private methods,
 incidental helper calls, temporary object structure, exact internal call sequences, or
