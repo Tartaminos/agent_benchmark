@@ -1,0 +1,54 @@
+<aside class="detail-panel" aria-labelledby="detail-heading">
+  <header class="detail-header">
+    <div>
+      <p class="eyebrow">Order details</p>
+      <% if turbo_frame_request? %>
+        <h2 id="detail-heading" tabindex="-1" data-order-details-target="heading"><%= order ? "Order #{order.order_id}" : "Order unavailable" %></h2>
+      <% else %>
+        <h1 id="detail-heading"><%= order ? "Order #{order.order_id}" : "Order unavailable" %></h1>
+      <% end %>
+    </div>
+    <%= link_to "Close", admin_orders_path(@query_params), class: "detail-close", data: { turbo_frame: "_top" }, aria: { label: "Close order details" } %>
+  </header>
+
+  <% if order %>
+    <section class="detail-card" aria-labelledby="summary-heading">
+      <h2 id="summary-heading">Order summary</h2>
+      <dl>
+        <div><dt>Order ID</dt><dd class="break-id"><%= order.order_id %></dd></div>
+        <div><dt>Order status</dt><dd><span class="status-badge status-<%= order.status %>"><%= status_label(order.status) %></span></dd></div>
+        <div><dt>Delivery status</dt><dd><span class="status-badge status-<%= delivery_status_for(order) %>"><%= status_label(delivery_status_for(order)) %></span></dd></div>
+        <div><dt>Purchase date</dt><dd><%= admin_date(order.purchase_at) %></dd></div>
+        <div><dt>Estimated delivery</dt><dd><%= admin_date(order.estimated_delivery_at) %></dd></div>
+        <div><dt>Delivered at</dt><dd><%= admin_date(order.delivered_customer_at) %></dd></div>
+      </dl>
+    </section>
+    <section class="detail-card" aria-labelledby="customer-heading">
+      <h2 id="customer-heading">Customer</h2>
+      <dl>
+        <div><dt>Customer ID</dt><dd class="break-id"><%= order.customer.customer_id %></dd></div>
+        <div><dt>Customer unique ID</dt><dd class="break-id"><%= order.customer.customer_unique_id %></dd></div>
+        <div><dt>State</dt><dd><%= order.customer.state %></dd></div>
+        <div><dt>City</dt><dd><%= order.customer.city %></dd></div>
+      </dl>
+    </section>
+    <section class="detail-card" aria-labelledby="totals-heading">
+      <h2 id="totals-heading">Totals</h2>
+      <dl>
+        <div><dt>Items total</dt><dd><%= admin_money(@item_total) %></dd></div>
+        <div><dt>Freight total</dt><dd><%= admin_money(@freight_total) %></dd></div>
+        <div><dt>Order total</dt><dd><strong><%= admin_money(@item_total + @freight_total) %></strong></dd></div>
+        <div><dt>Paid total</dt><dd><%= admin_money(@paid_total) %></dd></div>
+      </dl>
+    </section>
+    <% if turbo_frame_request? %>
+      <%= link_to "View full details", admin_order_path(order.order_id, admin_detail_params), class: "button button-outline detail-full", data: { turbo_frame: "_top" } %>
+    <% end %>
+  <% else %>
+    <section class="detail-card unavailable-state" role="alert">
+      <h2>We couldn't find this order</h2>
+      <p>It may be unavailable or the order ID may have changed. Return to the orders list and try again.</p>
+      <%= link_to "Back to orders", admin_orders_path(@query_params), class: "button button-primary", data: { turbo_frame: "_top" } %>
+    </section>
+  <% end %>
+</aside>

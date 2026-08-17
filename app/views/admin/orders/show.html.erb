@@ -1,0 +1,15 @@
+<% content_for :title, @order ? "Order #{@order.order_id} · Olist Admin" : "Order unavailable · Olist Admin" %>
+
+<% if turbo_frame_request? %>
+  <%= turbo_frame_tag "order_details", class: "order-detail-frame", data: { controller: "order-details", action: "turbo:before-fetch-request->order-details#loading turbo:frame-load->order-details#loaded" } do %>
+    <div class="frame-status" role="status" aria-live="polite" aria-atomic="true" data-order-details-target="status">Order details loaded.</div>
+    <%= render "details", order: @order %>
+  <% end %>
+<% else %>
+  <div class="admin-shell detail-page-shell">
+    <%= render "navigation" %>
+    <main class="standalone-detail" id="main-content">
+      <%= render "details", order: @order %>
+    </main>
+  </div>
+<% end %>

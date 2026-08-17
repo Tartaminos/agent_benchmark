@@ -1,0 +1,12 @@
+<aside class="admin-sidebar" aria-label="Admin navigation">
+  <%= link_to admin_orders_path, class: "admin-brand" do %>
+    <span class="admin-brand-mark" aria-hidden="true">◇</span>
+    <span>Olist Admin</span>
+  <% end %>
+
+  <nav>
+    <ul class="admin-nav-list">
+      <li><%= link_to admin_orders_path, class: "admin-nav-link is-active", "aria-current": "page" do %><span aria-hidden="true">▣</span> Orders<% end %></li>
+    </ul>
+  </nav>
+</aside>

@@ -4,6 +4,10 @@ Rails.application.routes.draw do
     get "sellers/:seller_id/orders", to: "seller_orders#index"
   end
 
+  namespace :admin do
+    resources :orders, only: %i[index show], param: :order_id
+  end
+
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
