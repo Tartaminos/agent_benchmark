@@ -38,6 +38,18 @@ class Api::OrdersTest < ActionDispatch::IntegrationTest
       delivered_customer_at: nil,
       estimated_delivery_at: Time.utc(2018, 1, 20)
     )
+    @exactly_on_time_order = create_delivery_order(
+      "external_order_exactly_on_time",
+      purchase_at: Time.utc(2018, 2, 1, 12),
+      estimated_delivery_at: Time.utc(2018, 2, 10, 12, 0, 0, 123_000),
+      delivered_customer_at: Time.utc(2018, 2, 10, 12, 0, 0, 123_000)
+    )
+    @late_order = create_delivery_order(
+      "external_order_late",
+      purchase_at: Time.utc(2018, 2, 1, 12),
+      estimated_delivery_at: Time.utc(2018, 2, 10, 12, 0, 0, 123_000),
+      delivered_customer_at: Time.utc(2018, 2, 10, 12, 0, 0, 124_000)
+    )
 
     first_product = Product.create!(product_id: "product_external_first")
     second_product = Product.create!(product_id: "product_external_second")
@@ -232,5 +244,142 @@ class Api::OrdersTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert_equal "application/json", response.media_type
     assert_equal({ "error" => "order_not_found" }, response.parsed_body)
+  end
+
+  test "index returns the exact read-only public contract with defaults classifications and deterministic ordering" do
+    sql = capture_request_sql { get "/api/orders" }
+
+    assert_response :success
+    assert_equal "application/json", response.media_type
+    assert_equal 2, sql.size, "expected one count and one bounded page query, got: #{sql.inspect}"
+    assert sql.all? { |statement| statement.match?(/\ASELECT\b/i) },
+           "expected a read-only endpoint, got: #{sql.join("\n\n")}"
+
+    body = response.parsed_body
+    assert_equal %w[orders page per_page total_orders total_pages].sort, body.keys.sort
+    assert_equal({ "page" => 1, "per_page" => 25, "total_orders" => 4, "total_pages" => 1 },
+                 body.except("orders"))
+    assert_equal(
+      %w[external_order_exactly_on_time external_order_late external_order_no_reviews external_order_primary],
+      body.fetch("orders").pluck("order_id")
+    )
+
+    orders = body.fetch("orders").index_by { |order| order.fetch("order_id") }
+    assert_equal "pending", orders.fetch("external_order_no_reviews").fetch("delivery_status")
+    assert_equal "on_time", orders.fetch("external_order_primary").fetch("delivery_status")
+    assert_equal "on_time", orders.fetch("external_order_exactly_on_time").fetch("delivery_status")
+    assert_equal "late", orders.fetch("external_order_late").fetch("delivery_status")
+    assert_equal "2018-02-10T12:00:00.123Z",
+                 orders.fetch("external_order_exactly_on_time").fetch("delivered_customer_at")
+    assert_equal "2018-02-10T12:00:00.124Z",
+                 orders.fetch("external_order_late").fetch("delivered_customer_at")
+    orders.each_value do |order|
+      assert_equal %w[
+        delivered_customer_at delivery_status estimated_delivery_at order_id purchase_at status
+      ].sort, order.keys.sort
+      refute_includes order, "id"
+      refute_includes order, "customer_id"
+    end
+  end
+
+  test "index applies every delivery status filter in SQL and reports filtered metadata" do
+    expected_order_ids = {
+      "pending" => [ "external_order_no_reviews" ],
+      "on_time" => %w[external_order_exactly_on_time external_order_primary],
+      "late" => [ "external_order_late" ]
+    }
+
+    expected_order_ids.each do |delivery_status, order_ids|
+      sql = capture_request_sql do
+        get "/api/orders", params: { delivery_status: delivery_status }
+      end
+
+      assert_response :success
+      assert_equal 2, sql.size, "expected database count and page queries for #{delivery_status}"
+      assert sql.all? { |statement| statement.include?("WHERE") },
+             "expected #{delivery_status} filtering in every database query, got: #{sql.inspect}"
+      assert_equal order_ids, response.parsed_body.fetch("orders").pluck("order_id")
+      assert_equal order_ids.size, response.parsed_body.fetch("total_orders")
+      assert_equal 1, response.parsed_body.fetch("total_pages")
+    end
+  end
+
+  test "index paginates the filtered result set with default maximum and oversized-page semantics" do
+    25.times do |number|
+      create_delivery_order(
+        format("pending_page_order_%02d", number),
+        purchase_at: Time.utc(2019, 1, 1) + number.hours,
+        estimated_delivery_at: Time.utc(2019, 1, 10),
+        delivered_customer_at: nil
+      )
+    end
+
+    get "/api/orders", params: { delivery_status: "pending" }
+    assert_response :success
+    assert_equal 1, response.parsed_body.fetch("page")
+    assert_equal 25, response.parsed_body.fetch("per_page")
+    assert_equal 26, response.parsed_body.fetch("total_orders")
+    assert_equal 2, response.parsed_body.fetch("total_pages")
+    assert_equal 25, response.parsed_body.fetch("orders").size
+
+    get "/api/orders", params: { delivery_status: "pending", page: "2" }
+    assert_response :success
+    assert_equal [ "external_order_no_reviews" ], response.parsed_body.fetch("orders").pluck("order_id")
+
+    get "/api/orders", params: { delivery_status: "pending", per_page: "100" }
+    assert_response :success
+    assert_equal 100, response.parsed_body.fetch("per_page")
+    assert_equal 1, response.parsed_body.fetch("total_pages")
+    assert_equal 26, response.parsed_body.fetch("orders").size
+
+    huge_page = "999999999999999999999999999999999999999999999999999999999999"
+    get "/api/orders", params: { delivery_status: "pending", page: huge_page, per_page: "7" }
+    assert_response :success
+    assert_equal huge_page.to_i, response.parsed_body.fetch("page")
+    assert_equal 4, response.parsed_body.fetch("total_pages")
+    assert_equal [], response.parsed_body.fetch("orders")
+  end
+
+  test "index rejects unsupported status and noncanonical or excessive pagination exactly" do
+    get "/api/orders", params: { delivery_status: "delivered" }
+
+    assert_response :unprocessable_content
+    assert_equal "application/json", response.media_type
+    assert_equal({ "error" => "invalid_delivery_status" }, response.parsed_body)
+
+    [
+      { page: "0" }, { page: "-1" }, { page: "01" }, { page: "+1" }, { page: "abc" },
+      { page: [] }, { page: { nested: "1" } },
+      { per_page: "0" }, { per_page: "-1" }, { per_page: "01" }, { per_page: "+1" },
+      { per_page: "101" }, { per_page: "abc" }, { per_page: [] },
+      { per_page: { nested: "25" } }
+    ].each do |params|
+      get "/api/orders", params: params
+
+      assert_response :unprocessable_content, "expected #{params.inspect} to be rejected"
+      assert_equal({ "error" => "invalid_pagination" }, response.parsed_body)
+    end
+  end
+
+  private
+
+  def create_delivery_order(external_id, purchase_at:, estimated_delivery_at:, delivered_customer_at:)
+    Order.create!(
+      order_id: external_id,
+      customer: @primary_order.customer,
+      status: delivered_customer_at ? "delivered" : "processing",
+      purchase_at: purchase_at,
+      delivered_customer_at: delivered_customer_at,
+      estimated_delivery_at: estimated_delivery_at
+    )
+  end
+
+  def capture_request_sql
+    counter = ActiveRecord::Assertions::QueryAssertions::SQLCounter.new
+    ActiveRecord::Base.lease_connection.materialize_transactions
+    ActiveRecord::Base.uncached do
+      ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { yield }
+    end
+    counter.log
   end
 end
