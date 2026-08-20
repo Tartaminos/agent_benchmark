@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
   namespace :api do
     resources :orders, only: :show, param: :order_id
+    get "sellers/:seller_id/orders", to: "seller_orders#index", as: :seller_orders
   end
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
