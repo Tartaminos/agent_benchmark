@@ -1,0 +1,56 @@
+<% content_for :title, @order ? "Order #{@order.order_id} · Olist Admin" : "Order not found · Olist Admin" %>
+
+<%= turbo_frame_tag "order_details", class: "order-details-frame", data: { controller: "order-details" }, aria: { live: "polite" } do %>
+  <% if @order %>
+    <article class="order-details" aria-labelledby="order-details-heading">
+      <header class="order-details__header">
+        <div>
+          <p class="eyebrow">Order details</p>
+          <h1 id="order-details-heading"><%= @order.order_id %></h1>
+        </div>
+        <%= link_to "Close", admin_orders_path(@return_query), class: "order-details__close", data: { turbo_frame: "_top", order_details_close: true }, aria: { label: "Close order details" } %>
+      </header>
+
+      <section class="detail-card" aria-labelledby="summary-heading">
+        <h2 id="summary-heading">Order summary</h2>
+        <dl class="detail-list">
+          <div><dt>Order ID</dt><dd class="breakable"><%= @order.order_id %></dd></div>
+          <div><dt>Order status</dt><dd><span class="status-badge <%= admin_status_class(@order.status) %>"><%= admin_status_label(@order.status) %></span></dd></div>
+          <div><dt>Delivery status</dt><dd><span class="status-badge <%= admin_status_class(@order.delivery_status) %>"><%= admin_status_label(@order.delivery_status) %></span></dd></div>
+          <div><dt>Purchased</dt><dd><%= admin_date_time(@order.purchase_at) %></dd></div>
+          <div><dt>Estimated delivery</dt><dd><%= admin_date_time(@order.estimated_delivery_at) %></dd></div>
+          <div><dt>Delivered to customer</dt><dd><%= admin_date_time(@order.delivered_customer_at) %></dd></div>
+        </dl>
+      </section>
+
+      <section class="detail-card" aria-labelledby="customer-heading">
+        <h2 id="customer-heading">Customer</h2>
+        <dl class="detail-list">
+          <div><dt>Customer ID</dt><dd class="breakable"><%= @order.customer.customer_id %></dd></div>
+          <div><dt>Customer unique ID</dt><dd class="breakable"><%= @order.customer.customer_unique_id %></dd></div>
+          <div><dt>City</dt><dd><%= @order.customer.city %></dd></div>
+          <div><dt>State</dt><dd><%= @order.customer.state %></dd></div>
+        </dl>
+      </section>
+
+      <section class="detail-card" aria-labelledby="totals-heading">
+        <h2 id="totals-heading">Totals</h2>
+        <dl class="detail-list detail-list--totals">
+          <div><dt>Item total</dt><dd><%= admin_money(@totals[:items]) %></dd></div>
+          <div><dt>Freight total</dt><dd><%= admin_money(@totals[:freight]) %></dd></div>
+          <div><dt>Order total</dt><dd><strong><%= admin_money(@totals[:order]) %></strong></dd></div>
+          <div><dt>Paid total</dt><dd><%= admin_money(@totals[:paid]) %></dd></div>
+        </dl>
+      </section>
+    </article>
+  <% else %>
+    <section class="order-details order-details--missing" role="alert" aria-labelledby="order-not-found-heading">
+      <header class="order-details__header">
+        <h1 id="order-not-found-heading">Order not found</h1>
+        <%= link_to "Close", admin_orders_path(@return_query), class: "order-details__close", data: { turbo_frame: "_top", order_details_close: true } %>
+      </header>
+      <p>The requested external order ID is invalid or unavailable.</p>
+      <%= link_to "Back to orders", admin_orders_path(@return_query), class: "button button--secondary", data: { turbo_frame: "_top", order_details_close: true } %>
+    </section>
+  <% end %>
+<% end %>

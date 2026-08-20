@@ -1,4 +1,8 @@
 Rails.application.routes.draw do
+  namespace :admin do
+    resources :orders, only: %i[index show], param: :order_id
+  end
+
   namespace :api do
     resources :orders, only: %i[index show], param: :order_id
     get "sellers/:seller_id/orders", to: "seller_orders#index", as: :seller_orders

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title><%= content_for(:title) || "Orders · Olist Admin" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "admin", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body class="admin-body">
+    <div class="admin-shell">
+      <aside class="admin-sidebar" aria-label="Administration">
+        <%= link_to admin_orders_path, class: "admin-brand" do %>
+          <span class="admin-brand__mark" aria-hidden="true">◇</span>
+          <span>Olist Admin</span>
+        <% end %>
+        <nav aria-label="Primary navigation">
+          <%= link_to admin_orders_path, class: "admin-nav-link", aria: { current: "page" } do %>
+            <span aria-hidden="true">▣</span>
+            <span>Orders</span>
+          <% end %>
+        </nav>
+      </aside>
+
+      <main class="admin-content" id="main-content">
+        <%= yield %>
+      </main>
+    </div>
+  </body>
+</html>

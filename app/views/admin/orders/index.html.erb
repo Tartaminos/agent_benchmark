@@ -1,0 +1,162 @@
+<% content_for :title, "Orders · Olist Admin" %>
+<%
+  status_options = [["All statuses", ""]] + Admin::OrdersController::ORDER_STATUSES.map { |status| [admin_status_label(status), status] }
+  delivery_options = [["All delivery statuses", ""]] + Order::DELIVERY_STATUSES.map { |status| [admin_status_label(status), status] }
+  state_options = [["All states", ""]] + Admin::OrdersController::CUSTOMER_STATES.map { |state| [state, state] }
+  status_options << ["Invalid: #{@filters[:status]}", @filters[:status]] if @filters[:status].present? && !Admin::OrdersController::ORDER_STATUSES.include?(@filters[:status])
+  delivery_options << ["Invalid: #{@filters[:delivery_status]}", @filters[:delivery_status]] if @filters[:delivery_status].present? && !Order::DELIVERY_STATUSES.include?(@filters[:delivery_status])
+  state_options << ["Invalid: #{@filters[:customer_state]}", @filters[:customer_state]] if @filters[:customer_state].present? && !Admin::OrdersController::CUSTOMER_STATES.include?(@filters[:customer_state])
+%>
+
+<header class="page-header">
+  <div>
+    <h1>Orders</h1>
+    <p>Browse and inspect orders from the Olist dataset.</p>
+  </div>
+</header>
+
+<section class="filter-card" aria-labelledby="filters-heading">
+  <h2 id="filters-heading" class="visually-hidden">Filter orders</h2>
+  <%= form_with url: admin_orders_path, method: :get, class: "filter-form" do |form| %>
+    <div class="form-field form-field--wide">
+      <%= form.label :order_id, "Order ID" %>
+      <%= form.search_field :order_id, value: @filters[:order_id], placeholder: "Enter the external order ID", autocomplete: "off" %>
+    </div>
+    <div class="form-field">
+      <%= form.label :status, "Order status" %>
+      <%= form.select :status, options_for_select(status_options, @filters[:status]) %>
+    </div>
+    <div class="form-field">
+      <%= form.label :delivery_status, "Delivery status" %>
+      <%= form.select :delivery_status, options_for_select(delivery_options, @filters[:delivery_status]) %>
+    </div>
+    <div class="form-field">
+      <%= form.label :customer_state, "Customer state" %>
+      <%= form.select :customer_state, options_for_select(state_options, @filters[:customer_state]) %>
+    </div>
+    <div class="form-field">
+      <%= form.label :purchased_from, "Purchased from" %>
+      <%= form.date_field :purchased_from, value: @filters[:purchased_from] %>
+    </div>
+    <div class="form-field">
+      <%= form.label :purchased_through, "Purchased through" %>
+      <%= form.date_field :purchased_through, value: @filters[:purchased_through] %>
+    </div>
+    <%= form.hidden_field :sort, value: @sort %>
+    <div class="filter-actions">
+      <%= link_to "Clear", admin_orders_path, class: "button button--secondary" %>
+      <%= form.submit "Apply filters", class: "button button--primary" %>
+    </div>
+  <% end %>
+
+  <% if @errors.any? %>
+    <div class="form-errors" role="alert" aria-labelledby="filter-errors-heading">
+      <h3 id="filter-errors-heading">Check your filters</h3>
+      <ul>
+        <% @errors.each do |error| %><li><%= error %></li><% end %>
+      </ul>
+    </div>
+  <% end %>
+</section>
+
+<div class="orders-workspace">
+  <section class="orders-card" aria-labelledby="orders-results-heading" aria-live="polite">
+    <div class="orders-toolbar">
+      <h2 id="orders-results-heading">
+        <% if @total_count.positive? %>
+          Showing <%= ((@page - 1) * Admin::OrdersController::PAGE_SIZE) + 1 %>–<%= [@page * Admin::OrdersController::PAGE_SIZE, @total_count].min %> of <%= number_with_delimiter(@total_count) %> orders
+        <% else %>
+          0 orders
+        <% end %>
+      </h2>
+      <div class="sort-controls" aria-label="Sort by purchase date">
+        <span>Purchase date:</span>
+        <% { "desc" => "Newest", "asc" => "Oldest" }.each do |direction, label| %>
+          <%= link_to label, admin_orders_path(@query_params.merge(sort: direction, page: nil)), class: "sort-link#{' sort-link--active' if @sort == direction}", aria: (@sort == direction ? { current: "true" } : {}) %>
+        <% end %>
+      </div>
+    </div>
+
+    <% if @orders.any? %>
+      <div class="orders-table-scroll" tabindex="0" role="region" aria-label="Orders table, horizontally scrollable">
+        <table class="orders-table">
+          <caption class="visually-hidden">Filtered Olist orders</caption>
+          <thead>
+            <tr>
+              <th scope="col">Order ID</th>
+              <th scope="col">Customer state</th>
+              <th scope="col">Order status</th>
+              <th scope="col">Delivery status</th>
+              <th scope="col">Purchased</th>
+              <th scope="col">Estimated delivery</th>
+              <th scope="col">Delivered</th>
+              <th scope="col">Total</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @orders.each do |order| %>
+              <tr>
+                <th scope="row" class="order-id"><%= order.order_id %></th>
+                <td><%= order.customer.state %></td>
+                <td><span class="status-badge <%= admin_status_class(order.status) %>"><%= admin_status_label(order.status) %></span></td>
+                <td><span class="status-badge <%= admin_status_class(order.delivery_status) %>"><%= admin_status_label(order.delivery_status) %></span></td>
+                <td><%= admin_date_time(order.purchase_at) %></td>
+                <td><%= admin_date(order.estimated_delivery_at) %></td>
+                <td><%= admin_date(order.delivered_customer_at) %></td>
+                <td class="money"><%= admin_money(@order_totals.fetch(order.id, 0)) %></td>
+                <td>
+                  <%= link_to "View details", admin_order_path(order.order_id, @query_params.merge(page: @page)), class: "table-action", data: { turbo_frame: "order_details", turbo_action: "advance", order_id: order.order_id }, aria: { label: "View details for order #{order.order_id}" } %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <% if @total_pages > 1 %>
+        <nav class="pagination" aria-label="Orders pagination">
+          <% if @page > 1 %>
+            <%= link_to "Previous", admin_orders_path(@query_params.merge(page: @page - 1)), rel: "prev", class: "pagination__link" %>
+          <% else %>
+            <span class="pagination__link is-disabled" aria-disabled="true">Previous</span>
+          <% end %>
+
+          <% previous_page = nil %>
+          <% admin_page_numbers(@page, @total_pages).each do |page_number| %>
+            <% if previous_page && page_number > previous_page + 1 %><span aria-hidden="true">…</span><% end %>
+            <% if page_number == @page %>
+              <span class="pagination__link is-current" aria-current="page"><span class="visually-hidden">Page </span><%= page_number %></span>
+            <% else %>
+              <%= link_to page_number, admin_orders_path(@query_params.merge(page: page_number)), class: "pagination__link", aria: { label: "Page #{page_number}" } %>
+            <% end %>
+            <% previous_page = page_number %>
+          <% end %>
+
+          <% if @page < @total_pages %>
+            <%= link_to "Next", admin_orders_path(@query_params.merge(page: @page + 1)), rel: "next", class: "pagination__link" %>
+          <% else %>
+            <span class="pagination__link is-disabled" aria-disabled="true">Next</span>
+          <% end %>
+        </nav>
+      <% end %>
+    <% elsif @errors.empty? %>
+      <div class="empty-state">
+        <% if @dataset_empty %>
+          <h3>No orders are available</h3>
+          <p>The imported dataset does not contain any orders yet.</p>
+        <% else %>
+          <h3>No orders match these filters</h3>
+          <p>Adjust the filters or clear them to see all available orders.</p>
+          <%= link_to "Clear filters", admin_orders_path, class: "button button--secondary" %>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="empty-state"><p>Correct the filter errors above to load orders.</p></div>
+    <% end %>
+  </section>
+
+  <%= turbo_frame_tag "order_details", class: "order-details-frame order-details-frame--empty", data: { controller: "order-details" }, aria: { live: "polite" } do %>
+    <span class="visually-hidden" role="status">Order details are closed.</span>
+  <% end %>
+</div>
