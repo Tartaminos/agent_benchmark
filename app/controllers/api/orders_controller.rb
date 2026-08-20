@@ -1,5 +1,38 @@
 module Api
   class OrdersController < ActionController::API
+    DEFAULT_PAGE = 1
+    DEFAULT_PER_PAGE = 25
+    MAX_PER_PAGE = 100
+
+    def index
+      page = pagination_value(:page, DEFAULT_PAGE)
+      per_page = pagination_value(:per_page, DEFAULT_PER_PAGE)
+
+      unless page && per_page && per_page <= MAX_PER_PAGE
+        return render json: { error: "invalid_pagination" }, status: :unprocessable_content
+      end
+
+      delivery_status = params[:delivery_status] if params.key?(:delivery_status)
+      unless valid_delivery_status?(delivery_status)
+        return render json: { error: "invalid_delivery_status" }, status: :unprocessable_content
+      end
+
+      matching_orders = Order.with_delivery_status(delivery_status)
+      total_count = matching_orders.count
+      orders = matching_orders
+        .order(purchase_at: :desc, order_id: :asc)
+        .limit(per_page)
+        .offset([ (page - 1) * per_page, total_count ].min)
+
+      render json: {
+        page: page,
+        per_page: per_page,
+        total_count: total_count,
+        total_pages: (total_count + per_page - 1) / per_page,
+        orders: orders.map { |order| list_order_json(order) }
+      }
+    end
+
     def show
       order = Order.find_by(order_id: params[:order_id])
       return render json: { error: "order_not_found" }, status: :not_found unless order
@@ -13,6 +46,32 @@ module Api
     end
 
     private
+
+    def pagination_value(name, default)
+      return default unless params.key?(name)
+
+      value = params[name]
+      return unless value.is_a?(String) && value.match?(/\A[0-9]+\z/)
+
+      number = value.to_i
+      number if number.positive?
+    end
+
+    def valid_delivery_status?(delivery_status)
+      delivery_status.nil? ||
+        (delivery_status.is_a?(String) && Order::DELIVERY_STATUSES.include?(delivery_status))
+    end
+
+    def list_order_json(order)
+      {
+        order_id: order.order_id,
+        status: order.status,
+        purchase_at: timestamp(order.purchase_at),
+        estimated_delivery_at: timestamp(order.estimated_delivery_at),
+        delivered_customer_at: timestamp(order.delivered_customer_at),
+        delivery_status: order.delivery_status
+      }
+    end
 
     def preload_associations(order)
       ActiveRecord::Associations::Preloader.new(
