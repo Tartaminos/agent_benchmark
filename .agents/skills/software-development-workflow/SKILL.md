@@ -1,1838 +1,424 @@
 ---
 name: software-development-workflow
-description: Orchestrate software implementation through architect, UI/UX, coder, test-engineer, reviewer, and QA agents. Use when implementing a feature, spec, backlog slice, bug fix, refactor, migration, integration, or meaningful production code change.
+description: Orchestrate meaningful production software changes through architect, UI/UX, coder, test-engineer, reviewer, and QA agents with explicit gates, compact handoffs, context slicing, and correction routing.
 ---
 
 # Software Development Workflow
 
-You are the orchestration workflow for production software development.
-
-Your responsibility is NOT to implement the feature yourself.
-
-Your responsibility is to coordinate specialized agents so that a requested software change is:
-
-1. understood in repository context;
-2. architecturally coherent;
-3. product- and UX-consistent when user-facing;
-4. implemented by a technology-specialist coder;
-5. independently protected by meaningful automated tests;
-6. independently reviewed;
-7. validated by QA against the actual product or runtime when applicable;
-8. corrected through controlled feedback loops when defects are found.
-
-The main Codex thread acts as the ORCHESTRATOR.
-
-The specialized agents perform the engineering work.
+The main Codex thread is the ORCHESTRATOR. It coordinates specialized agents; specialists perform their owned engineering work. The goal is a scoped, coherent implementation with independent automated testing, review, runtime validation when applicable, controlled correction loops, and minimal non-transitive context between agents.
 
 ---
 
-# 1. AVAILABLE SPECIALIST AGENTS
+# 1. ORCHESTRATOR AND SPECIALIST OWNERSHIP
 
-This workflow expects the following custom agents:
+Use these exact roles:
 
-* `architect`
-* `ui-ux-engineer`
-* `coder`
-* `test-engineer`
-* `reviewer`
-* `qa-engineer`
+- `architect` — architecture, placement, boundaries, dependency direction.
+- `ui-ux-engineer` — user experience before implementation and UI/UX review after.
+- `coder` — production implementation.
+- `test-engineer` — independent automated regression evidence.
+- `reviewer` — independent implementation/diff and test review.
+- `qa-engineer` — realistic runtime/product validation.
 
-Use these exact roles.
+The orchestrator owns task/repository discovery, source-of-truth resolution, Scope Lock, agent applicability/spawning, workflow state, context ledger, context slicing, handoff preservation, correction routing, gate decisions, and final consolidation. It may inspect repository evidence and run non-mutating discovery needed for coordination.
 
-Do not silently replace a required specialist with the main agent.
-
-If a required specialist cannot be spawned or is unavailable, report the workflow as BLOCKED rather than pretending the corresponding review or validation occurred.
+It must not silently replace a required specialist or perform that specialist's owned work. If a required specialist is unavailable, its required gate is BLOCKED.
 
 ---
 
-# 2. ORCHESTRATOR RESPONSIBILITY
+# 2. SOURCE OF TRUTH
 
-The main thread owns:
+Resolve instructions in this order:
 
-* task interpretation;
-* repository context discovery;
-* workflow state;
-* specialist selection;
-* specialist spawning;
-* handoff routing;
-* skip decisions;
-* correction routing;
-* gate decisions;
-* final consolidation.
-
-The main thread may:
-
-* read repository files;
-* read specs;
-* read AGENTS.md;
-* inspect git status;
-* inspect diffs;
-* inspect documentation;
-* discover applicable repository-local skills;
-* run non-mutating discovery commands;
-* collect specialist outputs;
-* perform final workflow bookkeeping.
-
-The main thread should NOT normally:
-
-* implement production code;
-* design the UI itself;
-* write the final automated test suite;
-* perform the independent code review itself;
-* claim QA validation without the QA agent.
-
-Delegate those responsibilities.
-
----
-
-# 3. CORE PRINCIPLE
-
-Use specialist separation to reduce self-confirmation bias.
-
-The agent that designs a solution should not be the only agent evaluating it.
-
-The agent that writes production code should not be the only agent designing its tests.
-
-The agent that writes tests should not be the final authority on whether those tests are sufficient.
-
-The agent that reviews code should not silently fix the code it is reviewing.
-
-The QA agent should validate the resulting product rather than assuming green tests mean correct behavior.
-
----
-
-# 4. SOURCE OF TRUTH HIERARCHY
-
-Before starting implementation, determine the applicable sources of truth.
-
-Use this priority when resolving instructions:
-
-1. Explicit user request and explicitly selected target spec or task.
-2. Applicable repository AGENTS.md instructions.
+1. Explicit user request and selected target spec/task.
+2. Applicable repository `AGENTS.md`.
 3. Explicit project source-of-truth documentation.
 4. Approved ADRs and architecture documentation.
-5. Implementation specifications and project-specific skills.
+5. Implementation specs and applicable repository-local skills.
 6. Product/domain/UI/security/testing documentation.
 7. Existing healthy repository behavior and conventions.
 8. Specialist recommendations.
-9. Generic industry best practices.
+9. Generic industry practices.
 
-A specialist must not override an explicit repository decision merely because another design is theoretically preferable.
+Discover applicable skills under `.agents/skills`. Project skills add repository procedure and constraints; they do not collapse specialist ownership unless higher-priority instructions say so.
 
-If sources of truth conflict materially, route the conflict to the Architect and report it rather than silently choosing one.
+When a spec/slice is selected, read it completely plus materially required linked context. Authoritative documentation outranks accidental implementation. Do not silently alter requirements or source-of-truth to fit code.
 
----
-
-# 5. REPOSITORY-SPECIFIC SKILLS
-
-Before orchestrating a meaningful task, discover whether the repository contains applicable repo-local skills under `.agents/skills`.
-
-When an applicable project-specific skill exists:
-
-* load and follow it;
-* treat it as project procedural context;
-* preserve its scope and constraints;
-* pass relevant instructions to downstream agents.
-
-A repository-specific skill augments this global workflow.
-
-It does not eliminate specialist separation unless the explicit user instruction requires otherwise.
-
-Example:
-
-Global:
-software-development-workflow
-
-Project:
-chula-phase-5-4-product-ui-ux-stabilization
-
-The project skill defines WHAT the repository requires.
-
-This workflow defines WHO performs each engineering responsibility and HOW quality gates are coordinated.
+If material source conflicts cannot be resolved from repository evidence, route to `architect`; if no safe resolution exists, BLOCKED.
 
 ---
 
-# 6. START WITH WORKING-TREE SAFETY
+# 3. WORKING-TREE SAFETY
 
-Before implementation:
+Before write work, inspect repository root/status and identify pre-existing changes. Keep the task diff distinguishable where practical. Never discard, reset, revert, overwrite, or silently absorb unrelated user work.
 
-1. Determine repository root.
-2. Inspect current git status.
-3. Identify existing uncommitted changes.
-4. Do not discard, reset, overwrite, or revert unrelated user changes.
-5. Do not assume all existing modifications belong to the current task.
-6. Keep the task diff distinguishable from pre-existing work whenever possible.
+Do not automatically commit, push, create a branch/PR, amend, force-push, or run destructive git commands. These require explicit user intent or another applicable workflow.
 
-Never run destructive git commands unless explicitly authorized.
-
-Do not automatically:
-
-* commit;
-* push;
-* create a branch;
-* open a PR;
-* amend commits;
-* force push.
-
-Those operations require explicit user intent or another applicable workflow.
+Write-heavy specialists touching the same tree run sequentially. Never run `coder` and `test-engineer`, multiple coders, or overlapping write agents concurrently. Independent read-only work may parallelize when safe.
 
 ---
 
-# 7. RESOLVE THE EXACT TASK
+# 4. SCOPE LOCK AND DISCOVERY
 
-Before spawning implementation agents, resolve the concrete target.
-
-Examples:
-
-* specific specification;
-* backlog slice;
-* issue;
-* bug;
-* feature;
-* refactor scope;
-* migration;
-* integration change.
-
-If the user names a spec or slice, that scope becomes the SCOPE LOCK.
-
-Read the selected spec completely.
-
-Read documents explicitly required or linked by that spec when they materially affect implementation.
-
-Do not implement neighboring specs merely because they are related.
-
----
-
-# 8. SCOPE LOCK
-
-Once the target is resolved, define:
+Before production specialists, define:
 
 ## Scope Lock
 
-Target:
-<exact requested feature/spec/slice>
+### Target
+<exact feature/spec/slice/bug/refactor/migration/integration>
 
-Required behavior:
+### Required Behavior
+<required observable/technical behavior>
 
-<summary>
+### Explicit Exclusions
+<known out-of-scope behavior>
 
-Explicit exclusions: <known exclusions>
+### Authoritative Sources
+<files/docs/specs/skills>
 
-Relevant project sources:
-<files/docs>
+### Likely Affected Surfaces
+<backend/frontend/mobile/database/integrations/etc>
 
-Likely affected surfaces:
-<backend/frontend/mobile/database/etc>
+Scope Lock is binding. Unrelated findings are reported separately unless necessary for safe task completion; do not silently expand implementation.
 
-The workflow must preserve this scope.
+Discovery also resolves applicable instructions/skills, source docs, affected repository areas, git state, task modifiers, and required agents. It prepares context; it does not replace specialist analysis.
 
-Agents may identify unrelated issues, but those issues should be reported separately rather than silently added to implementation.
-
----
-
-# 9. TASK CLASSIFICATION
-
-Classify the task before selecting stages.
-
-Possible categories include:
-
-## FEATURE / SPEC IMPLEMENTATION
-
-New product or technical behavior.
-
-Default pipeline:
-ARCHITECT
-→ UI/UX when applicable
-→ CODER
-→ TEST ENGINEER
-→ UI/UX IMPLEMENTATION REVIEW when applicable
-→ REVIEWER
-→ QA
-
-## BUG FIX
-
-Existing behavior is incorrect.
-
-Default pipeline:
-ARCHITECT
-→ UI/UX when the bug is user-facing or interaction-related
-→ CODER
-→ TEST ENGINEER
-→ UI/UX IMPLEMENTATION REVIEW when applicable
-→ REVIEWER
-→ QA
-
-Regression protection is especially important.
-
-## REFACTOR
-
-Behavior should remain equivalent.
-
-Default pipeline:
-ARCHITECT
-→ CODER
-→ TEST ENGINEER
-→ REVIEWER
-→ QA when runtime regression risk is meaningful
-
-UI/UX normally skips unless user-facing behavior may change.
-
-## DATABASE / MIGRATION
-
-Default pipeline:
-ARCHITECT
-→ CODER
-→ TEST ENGINEER
-→ REVIEWER
-→ QA or runtime validation when meaningful
-
-## INFRASTRUCTURE / INTEGRATION
-
-Default pipeline:
-ARCHITECT
-→ CODER
-→ TEST ENGINEER
-→ REVIEWER
-→ QA / smoke validation
-
-## USER-FACING UI CHANGE
-
-Default pipeline:
-ARCHITECT
-→ UI/UX
-→ CODER
-→ TEST ENGINEER
-→ UI/UX IMPLEMENTATION REVIEW
-→ REVIEWER
-→ QA
-
-## DOCUMENTATION ONLY
-
-This workflow normally should not trigger implicitly.
-
-If explicitly invoked for documentation-only work, do not unnecessarily spawn the full engineering pipeline.
+Discovery is progressive and question-driven. Start with the nearest relevant implementation, one healthy analogous pattern when useful, and directly relevant tests/configuration. Stop once the active specialist can support its owned decisions with concrete evidence and no material unresolved ambiguity. Expand one dependency/boundary ring only to answer a specific unresolved question or material risk; do not scan additional areas merely for completeness. Do not impose a fixed file-count limit when more evidence is genuinely required.
 
 ---
 
-# 10. MANDATORY VS CONDITIONAL AGENTS
+# 5. PIPELINE AND AGENT APPLICABILITY
 
-For meaningful production code changes:
+Canonical pipeline:
 
-`coder`:
-MANDATORY
+ARCHITECT when required
+→ UI/UX DESIGN when user-facing
+→ CODER
+→ TEST ENGINEER when test-relevant behavior changed
+→ UI/UX IMPLEMENTATION REVIEW when UI/UX design ran
+→ REVIEWER
+→ QA when runtime/product validation adds evidence
 
-`reviewer`:
-MANDATORY
+Applicability:
 
-`architect`:
-MANDATORY for features, specs, bug fixes with meaningful behavior, refactors, migrations, integrations, structural changes, or unfamiliar repository areas.
+- `coder`: mandatory for production implementation.
+- `reviewer`: mandatory for meaningful production changes.
+- `architect`: mandatory for features/specs, meaningful bugs/refactors, migrations, integrations, structural/unfamiliar work, or material architecture/security/data impact. Skip only genuinely mechanical work with no architectural consequence.
+- `test-engineer`: mandatory when behavior, logic, contracts, persistence, integrations, security, UI behavior, or regression risk changes.
+- `ui-ux-engineer`: mandatory for meaningful user-visible flow, interaction, responsive/accessibility behavior, navigation, copy, UI states, or feedback changes.
+- `qa-engineer`: default for meaningful observable runtime/product behavior. Skip only when it cannot add evidence, such as docs/comments/formatting, purely test-internal changes, or genuinely mechanical internal changes.
 
-May skip only for genuinely mechanical changes with no architectural implications.
-
-`test-engineer`:
-MANDATORY when behavior, logic, API contracts, persistence, integrations, UI behavior, security behavior, or regression risk changes.
-
-`ui-ux-engineer`:
-MANDATORY when the change affects user-visible:
-
-* interface;
-* flow;
-* interaction;
-* responsive behavior;
-* accessibility;
-* copy with product meaning;
-* navigation;
-* UI state;
-* feedback.
-
-`qa-engineer`:
-DEFAULT TO RUN for meaningful production behavior.
-
-Skip only when there is no meaningful observable runtime behavior to validate, such as:
-
-* comment-only change;
-* formatting-only change;
-* documentation-only change;
-* purely test-internal change;
-* mechanical internal change where QA cannot provide additional evidence.
-
-When uncertain, run QA with a reduced targeted scope rather than skipping it.
+When uncertain about QA, prefer targeted QA over skipping. Use the smallest pipeline that preserves independent confidence.
 
 ---
 
-# 11. DO NOT OVER-ORCHESTRATE
+# 6. WORKFLOW STATE MACHINE AND CONTEXT LEDGER
 
-Do not spawn agents simply because they exist.
-
-Every agent invocation must have a clear engineering responsibility.
-
-Example:
-
-A backend-only database index change does not require UI/UX.
-
-A CSS spacing fix does not require a database investigation.
-
-A docs typo does not need six agents.
-
-Use the smallest workflow that still provides strong confidence.
-
----
-
-# 12. SEQUENTIAL WRITE DISCIPLINE
-
-Do not run multiple write-heavy agents against the same working tree concurrently.
-
-In particular, do NOT run these simultaneously:
-
-* coder;
-* test-engineer;
-* multiple coders;
-* multiple agents modifying overlapping files.
-
-Write-heavy work should normally be sequential.
-
-Read-only or analysis-heavy tasks may run in parallel only when they are truly independent.
-
-Prefer deterministic coordination over maximum concurrency.
-
----
-
-# 13. WORKFLOW STATE MACHINE
-
-Track the workflow state explicitly.
-
-Possible states:
+Track exactly one state:
 
 DISCOVERY
-
 ARCHITECTURE
-
 UX_DESIGN
-
 IMPLEMENTATION
-
 AUTOMATED_TESTING
-
 UX_IMPLEMENTATION_REVIEW
-
 CODE_REVIEW
-
 QA
-
 CORRECTION
-
 COMPLETE
-
 BLOCKED
 
-At any moment, know:
+Preserve current state, last passed gate, active specialist, unresolved findings, correction count, and next required gate.
 
-* current state;
-* previous completed gate;
-* active specialist;
-* unresolved findings;
-* next expected gate.
+Also maintain a canonical Workflow Context Ledger containing, as applicable:
 
-Do not lose findings between agent handoffs.
+- Scope Lock;
+- authoritative source references;
+- accepted architecture decisions;
+- accepted UI/UX decisions;
+- current implementation state;
+- automated-test evidence;
+- UI/UX implementation-review result;
+- reviewer findings;
+- QA evidence;
+- current repository/diff/runtime state;
+- unresolved findings;
+- accepted residual risks.
 
----
+Full specialist handoffs belong to the ledger. Specialists do not receive the ledger itself; each invocation receives a consumer-specific Context Slice derived from it.
 
-# 14. PHASE 0 — DISCOVERY
+The ledger is orchestration state, not a repository artifact. Do not create a persistent ledger file unless explicitly requested.
 
-Before spawning specialists:
+Normal progression follows the applicable pipeline. A failed gate enters CORRECTION and routes to the earliest owned decision/work that must change. Resume from the earliest invalidated gate; never restart unaffected earlier gates. A blocked required gate prevents completion.
 
-1. Read applicable AGENTS.md.
-2. Resolve target spec/task.
-3. Read relevant source-of-truth documentation.
-4. Discover applicable repository-local skills.
-5. Inspect repository structure enough to locate affected areas.
-6. Inspect git status.
-7. Establish Scope Lock.
-8. Classify the task.
-9. Determine required agents.
-
-Do not perform the Architect's full architecture analysis in the main thread.
-
-Discovery should prepare context, not replace specialists.
+After the user invokes this workflow, progress automatically through all applicable gates and correction loops. Do not ask permission between routine stages. `IMPLEMENTATION_COMPLETE` is not workflow completion. Stop only at COMPLETE or BLOCKED.
 
 ---
 
-# 15. PHASE 1 — ARCHITECT
+# 7. HANDOFF RECORDS AND CONTEXT SLICES
 
-Spawn `architect`.
+Each specialist owns the detailed schema of its output. The orchestrator preserves full handoffs in the Workflow Context Ledger, interprets their verdicts, and builds downstream Context Slices without silently rewriting specialist decisions.
 
-Provide:
+Expected records:
 
-* exact user task;
-* exact spec/slice when applicable;
-* Scope Lock;
-* relevant repository documentation;
-* applicable project-specific skill;
-* relevant AGENTS.md constraints;
-* current repository state.
+- `architect` → Architecture Handoff.
+- `ui-ux-engineer` design invocation → UI/UX Handoff.
+- `coder` → Implementation Handoff.
+- `test-engineer` → Test Handoff.
+- `ui-ux-engineer` implementation-review invocation → UI/UX review verdict/findings.
+- `reviewer` → Review Handoff.
+- `qa-engineer` → QA Handoff.
 
-Instruction objective:
+A full handoff is a canonical workflow record, not the default prompt for the next specialist.
 
-Understand the repository architecture first.
+Handoffs are compact by default. Put the verdict first, use short field/value lines or bullets, prefer references over copied evidence, omit irrelevant optional fields or mark them once as `None`, and do not repeat Scope Lock or upstream context. Successful gates stay terse; spend detail on findings, blockers, residual risks, non-obvious decisions, and executed evidence. Never compress away information required for routing, revalidation, or safety.
 
-Determine how the requested change belongs in the existing system.
+Build each invocation from this generic Context Slice shape, omitting empty or irrelevant fields:
 
-Do not modify production code.
+## Context Slice
 
-Identify architectural boundaries, affected modules, dependency direction, integration implications, data implications, and implementation constraints.
+### Scope
+<only task behavior relevant to this specialist>
 
-Return an Architecture Handoff.
+### Constraints
+<only authoritative/upstream decisions this specialist must preserve>
 
----
+### Source References
+<paths, symbols, docs, commits, diffs, or runtime references to inspect when needed>
 
-# 16. ARCHITECTURE HANDOFF CONTRACT
+### Current State
+<only implementation/diff/runtime state relevant to this gate>
 
-Require the Architect to return a concise handoff containing:
+### Open Findings
+<only unresolved findings this specialist owns or must revalidate>
 
-## Architecture Handoff
+### Evidence / Risks
+<only evidence or residual risks required for this gate>
 
-### Repository Architecture Relevant to Task
-
-<summary>
-
-### Existing Analogous Patterns
-
-<files/modules/patterns>
-
-### Proposed Placement
-
-<where behavior belongs>
-
-### Affected Components
-
-<components>
-
-### Dependency Direction
-
-<expected interactions>
-
-### Data / Persistence Impact
-
-<if applicable>
-
-### API / Integration Impact
-
-<if applicable>
-
-### Security / Privacy Impact
-
-<if applicable>
-
-### Architectural Constraints
-
-<constraints coder must preserve>
-
-### Risks
-
-<risks>
-
-### Architecture Verdict
-
-READY_FOR_IMPLEMENTATION
-
-or
-
-ARCHITECTURE_BLOCKED
-
-If ARCHITECTURE_BLOCKED, do not proceed blindly.
+Do not infer or fabricate a handoff/verdict that its responsible specialist did not produce.
 
 ---
 
-# 17. ARCHITECTURE GATE
-
-If Architect returns:
-
-READY_FOR_IMPLEMENTATION
-
-Continue.
-
-If Architect reports a material contradiction between:
-
-* spec;
-* repository architecture;
-* ADR;
-* security requirement;
-* source-of-truth documentation;
-
-attempt to resolve it from repository evidence.
-
-If it cannot be resolved safely, mark workflow:
-
-BLOCKED
-
-Explain the exact contradiction.
-
-Do not invent a new architecture merely to continue.
-
----
-
-# 18. PHASE 2 — UI/UX DESIGN
-
-Run only when the task has meaningful user-facing impact.
-
-Spawn `ui-ux-engineer`.
-
-Provide:
-
-* original task/spec;
-* Scope Lock;
-* Architecture Handoff;
-* relevant product documentation;
-* relevant frontend documentation;
-* design system context;
-* existing analogous UI;
-* project-specific skill.
-
-The UI/UX Engineer must:
-
-* understand existing product experience first;
-* preserve design-system cohesion;
-* define user flow;
-* define interaction behavior;
-* define states;
-* define responsive behavior;
-* define accessibility requirements;
-* identify reusable components;
-* avoid redesigning unrelated surfaces.
-
-Do not modify production code.
-
----
-
-# 19. UI/UX HANDOFF CONTRACT
-
-Require:
-
-## UI/UX Handoff
-
-### Existing Experience
-
-<current relevant behavior>
-
-### User Goal
-
-<goal>
-
-### Existing Patterns
-
-<analogous screens/components>
-
-### Proposed User Flow
-
-<flow>
-
-### UI Structure
-
-<structure>
-
-### Required States
-
-<loading/error/empty/success/etc>
-
-### Responsive Behavior
-
-<requirements>
-
-### Accessibility Requirements
-
-<requirements>
-
-### Product Copy / Feedback
-
-<only when relevant>
-
-### Implementation Constraints
-
-<constraints for coder>
-
-### Acceptance Criteria
-
-<observable criteria>
-
-### UX Verdict
-
-READY_FOR_IMPLEMENTATION
-
-or
-
-UX_BLOCKED
-
-Do not proceed with materially undefined UX when it affects required behavior.
-
----
-
-# 20. PHASE 3 — CODER
-
-Spawn `coder`.
-
-Provide:
-
-* original task/spec;
-* Scope Lock;
-* applicable project instructions;
-* relevant source-of-truth docs;
-* Architecture Handoff;
-* UI/UX Handoff when applicable;
-* known constraints;
-* current working-tree state.
-
-The Coder must:
-
-* inspect the affected repository area;
-* identify actual languages/frameworks/versions;
-* become a specialist in those technologies;
-* implement the smallest coherent production change;
-* preserve architecture;
-* preserve UI/UX decisions;
-* avoid unrelated refactors;
-* run applicable baseline validations;
-* review its own diff.
-
-The Coder owns production implementation.
-
-Do not ask the Coder to design the final independent test strategy.
-
----
-
-# 21. CODER HANDOFF CONTRACT
-
-Require:
-
-## Implementation Handoff
-
-### Implemented Behavior
-
-<summary>
-
-### Technology Context
-
-<languages/frameworks/versions>
-
-### Files / Components Changed
-
-<files/components>
-
-### Architectural Alignment
-
-<summary>
-
-### UI/UX Alignment
-
-<if applicable>
-
-### Important Rules / Invariants
-
-<rules>
-
-### Side Effects
-
-<database/events/API/files/etc>
-
-### Error Paths
-
-<errors>
-
-### Validation Executed
-
-<commands and actual results>
-
-### Known Risks / Limitations
-
-<real issues only>
-
-### Test Engineer Risk Areas
-
-<areas needing independent verification>
-
-### Implementation Verdict
-
-IMPLEMENTATION_COMPLETE
-
-or
-
-IMPLEMENTATION_BLOCKED
-
-Do not proceed as successful if implementation is blocked.
-
----
-
-# 22. PHASE 4 — TEST ENGINEER
-
-After production implementation is complete, spawn `test-engineer`.
-
-Do not run it concurrently with the Coder.
-
-Provide:
-
-* original requirement/spec;
-* Scope Lock;
-* Architecture Handoff;
-* UI/UX Handoff when applicable;
-* Implementation Handoff;
-* actual current diff;
-* existing test strategy documentation;
-* project-specific test instructions.
-
-The Test Engineer must independently decide:
-
-* what behavior must be proven;
-* which test levels are justified;
-* which test levels are redundant;
-* which boundaries matter;
-* which edge cases matter;
-* whether real integration semantics must be exercised.
-
-The Test Engineer owns automated regression evidence.
-
----
-
-# 23. TEST ENGINEER HANDOFF CONTRACT
-
-Require:
-
-## Test Handoff
-
-### Test Strategy
-
-<chosen levels and rationale>
-
-### Test Ecosystem
-
-<frameworks/tools>
-
-### Tests Added / Changed
-
-<files>
-
-### Behaviors Proven
-
-<behavior>
-
-### Boundaries / Failure Paths
-
-<coverage>
-
-### Test Levels Explicitly Skipped
-
-<level and reason>
-
-### Redundancy Avoided
-
-<summary>
-
-### False-Positive Protection
-
-<summary>
-
-### Validation Executed
-
-<commands and results>
-
-### Implementation Defects Found
-
-<if any>
-
-### Remaining Test Risks
-
-<if any>
-
-### Test Verdict
-
-TESTS_PASS
-
-TESTS_FOUND_IMPLEMENTATION_DEFECT
-
-TESTS_BLOCKED
-
-If an implementation defect is found, do not weaken the test.
-
-Route the defect back to the Coder.
-
----
-
-# 24. TEST DEFECT LOOP
-
-If Test Engineer reports:
-
-TESTS_FOUND_IMPLEMENTATION_DEFECT
-
-Route to:
-
-CODER
-
-Provide the exact failing behavior and Test Engineer evidence.
-
-After Coder correction:
-
-1. return to Test Engineer;
-2. verify regression protection;
-3. rerun relevant tests;
-4. continue only after TESTS_PASS.
-
-If testing reveals an architectural issue:
-
-ARCHITECT
-→ CODER
-→ TEST ENGINEER
-
-If testing reveals a UX-specification issue:
-
-UI/UX ENGINEER
-→ CODER
-→ TEST ENGINEER
-
----
-
-# 25. PHASE 5 — UI/UX IMPLEMENTATION REVIEW
-
-For user-facing changes, spawn `ui-ux-engineer` again after implementation and automated tests.
-
-This is a REVIEW invocation, not a new design phase.
-
-Provide:
-
-* original UI/UX Handoff;
-* current implementation;
-* relevant screenshots/rendered application when tools permit;
-* actual UI states;
-* current diff.
-
-Ask the UI/UX Engineer to validate:
-
-* design-system cohesion;
-* interaction behavior;
-* visual hierarchy;
-* state implementation;
-* responsive behavior;
-* accessibility behavior;
-* copy;
-* alignment with acceptance criteria.
-
-Prefer visual inspection of the running UI when available.
-
-Do not claim visual review occurred if the interface could not be rendered or inspected.
-
----
-
-# 26. UI/UX IMPLEMENTATION REVIEW VERDICT
-
-Require one of:
-
-UX_APPROVED
-
-UX_CHANGES_REQUIRED
-
-UX_REVIEW_BLOCKED
-
-If UX_CHANGES_REQUIRED:
-
-Route:
-
-UI/UX ENGINEER finding
-→ CODER
-→ TEST ENGINEER when behavior or automated protection is affected
-→ UI/UX IMPLEMENTATION REVIEW again
-
-Do not route purely visual implementation bugs back to the Architect unless architecture is actually implicated.
-
----
-
-# 27. PHASE 6 — REVIEWER
-
-Spawn `reviewer`.
-
-Provide:
-
-* original task/spec;
-* Scope Lock;
-* Architecture Handoff;
-* UI/UX Handoff when applicable;
-* Implementation Handoff;
-* Test Handoff;
-* UI/UX implementation-review result when applicable;
-* current actual diff;
-* relevant repository context.
-
-The Reviewer independently evaluates:
-
-* requirement correctness;
-* architecture;
-* language/framework usage;
-* security;
-* authorization;
-* data integrity;
-* concurrency;
-* performance risks;
-* API compatibility;
-* maintainability;
-* tests;
-* regression risk;
-* scope discipline.
-
-The Reviewer must not modify files.
-
----
-
-# 28. REVIEW VERDICTS
-
-Reviewer must return one of:
-
-APPROVED
-
-APPROVED_WITH_NON_BLOCKING_COMMENTS
-
-CHANGES_REQUIRED
-
-BLOCKED
-
-Proceed to QA when:
-
-APPROVED
-
-or
-
-APPROVED_WITH_NON_BLOCKING_COMMENTS
-
-provided no unresolved BLOCKER or HIGH defect exists.
-
----
-
-# 29. REVIEW FINDING OWNERSHIP
-
-Route Reviewer findings according to category.
-
-## IMPLEMENTATION DEFECT
-
-Owner:
-CODER
-
-Route:
-
-CODER
-→ TEST ENGINEER if behavior changed or regression protection is needed
-→ REVIEWER
-
-## TEST GAP
-
-Owner:
-TEST ENGINEER
-
-Route:
-
-TEST ENGINEER
-→ REVIEWER
-
-## ARCHITECTURAL ISSUE
-
-Owner:
-ARCHITECT
-
-Route:
-
-ARCHITECT
-→ CODER
-→ TEST ENGINEER
-→ REVIEWER
-
-## UX/UI ISSUE
-
-Owner:
-UI/UX ENGINEER
-
-Route:
-
-UI/UX ENGINEER
-→ CODER
-→ TEST ENGINEER when applicable
-→ UI/UX IMPLEMENTATION REVIEW
-→ REVIEWER
-
-Do not send every finding blindly to the Coder.
-
----
-
-# 30. REVIEW SEVERITY POLICY
-
-BLOCKER:
-must be resolved.
-
-HIGH:
-must be resolved.
-
-MEDIUM:
-normally resolve before proceeding unless the Reviewer explicitly classifies it as non-blocking and the requirement remains satisfied.
-
-LOW:
-may remain as non-blocking unless it indicates a systematic issue.
-
-OPTIONAL IMPROVEMENT:
-does not block completion.
-
-Do not churn on subjective stylistic suggestions.
-
----
-
-# 31. PHASE 7 — QA
-
-After review approval, spawn `qa-engineer` when applicable.
-
-Provide:
-
-* original task/spec;
-* Scope Lock;
-* acceptance criteria;
-* Architecture Handoff;
-* UI/UX Handoff when applicable;
-* Implementation Handoff;
-* Test Handoff;
-* Reviewer verdict;
-* known risks;
-* relevant runtime instructions.
-
-QA should validate the actual running product or system whenever tools/environment permit.
-
-QA must focus on:
-
-* critical path;
-* realistic user/system flow;
-* failure paths;
-* permissions;
-* duplicate actions;
-* state transitions;
-* refresh/retry;
-* slow/failing dependencies;
-* responsive behavior;
-* accessibility where applicable;
-* regression risk;
-* persisted state;
-* real observable behavior.
-
-Do not treat source inspection alone as full QA execution.
-
----
-
-# 32. QA ENVIRONMENT HONESTY
-
-QA must state what environment was actually used.
-
-Examples:
-
-* local runtime;
-* browser;
-* emulator;
-* device;
-* API-only environment;
-* test container environment.
-
-If a required runtime cannot be started, do not claim the scenario passed.
-
-Distinguish:
-
-NOT EXECUTED
-
-from:
-
-PASS
-
-When lack of environment prevents meaningful final validation, use QA_BLOCKED rather than pretending confidence.
-
----
-
-# 33. QA VERDICTS
-
-Require one of:
-
-PASS
-
-PASS_WITH_KNOWN_RISKS
-
-FAIL
-
-BLOCKED
-
-PASS:
-workflow may complete.
-
-PASS_WITH_KNOWN_RISKS:
-workflow may complete only when remaining risks are explicitly understood, non-blocking, and do not violate the selected spec or acceptance criteria.
-
-FAIL:
-route defects.
-
-BLOCKED:
-workflow cannot claim completion.
-
----
-
-# 34. QA DEFECT ROUTING
-
-Route according to defect category.
-
-## IMPLEMENTATION DEFECT
-
-CODER
-→ TEST ENGINEER if automation is appropriate
-→ REVIEWER
-→ QA RE-TEST
-
-## TEST GAP
-
-TEST ENGINEER
-→ REVIEWER
-→ QA RE-TEST when behavior was affected
-
-## UX DEFECT
-
-UI/UX ENGINEER
-→ CODER
-→ TEST ENGINEER when applicable
-→ UI/UX IMPLEMENTATION REVIEW
-→ REVIEWER
-→ QA RE-TEST
-
-## UI DEFECT
-
-UI/UX ENGINEER when design decision is involved
-
-and/or
-
-CODER when implementation simply differs from approved design
-
-Then:
-→ TEST ENGINEER when applicable
-→ UI/UX IMPLEMENTATION REVIEW
-→ REVIEWER
-→ QA RE-TEST
-
-## ACCESSIBILITY DEFECT
-
-UI/UX ENGINEER and/or CODER
-→ TEST ENGINEER when automatable
-→ REVIEWER
-→ QA RE-TEST
-
-## ARCHITECTURAL DEFECT
-
-ARCHITECT
-→ CODER
-→ TEST ENGINEER
-→ REVIEWER
-→ QA RE-TEST
-
-## ENVIRONMENT DEFECT
-
-Do not patch production code merely to make an invalid QA environment pass.
-
-Identify the correct owner and report the environment problem.
-
----
-
-# 35. REGRESSION TEST CREATION AFTER QA DEFECTS
-
-When QA discovers a meaningful defect that can reasonably be automated:
-
-after the Coder fixes it, send it to Test Engineer.
-
-The Test Engineer should add regression protection at the lowest effective level.
-
-Do not force every exploratory QA scenario into automated tests.
-
-Automate scenarios when doing so adds durable confidence.
-
----
-
-# 36. CORRECTION LOOP
-
-Every correction cycle should follow the smallest necessary path.
-
-Do NOT restart the entire pipeline from Architect unless architecture changed.
-
-Examples:
-
-Simple implementation defect:
-
-CODER
-→ TEST ENGINEER
-→ REVIEWER
-→ QA
-
-Pure test gap:
-
-TEST ENGINEER
-→ REVIEWER
-→ QA if relevant
-
-UX defect:
-
-UI/UX ENGINEER
-→ CODER
-→ TEST ENGINEER if applicable
-→ UI/UX REVIEW
-→ REVIEWER
-→ QA
-
-Architecture defect:
-
-ARCHITECT
-→ CODER
-→ TEST ENGINEER
-→ UI/UX REVIEW if relevant
-→ REVIEWER
-→ QA
-
-Preserve already-approved decisions unless the fix invalidates them.
-
----
-
-# 37. LOOP CONTROL
-
-Do not create infinite correction loops.
-
-Track correction cycles per gate.
-
-After 3 unsuccessful correction cycles for the same unresolved issue or gate:
-
-mark:
-
-BLOCKED
-
-Report:
-
-* unresolved defect;
-* agents involved;
-* attempted corrections;
-* current evidence;
-* reason continued autonomous iteration is unlikely to help.
-
-Do not continue consuming work indefinitely without progress.
-
----
-
-# 38. SPECIAL RULE FOR BUG FIXES
-
-For bug fixes:
-
-1. Understand expected behavior.
-2. Reproduce the bug deterministically when practical.
-3. Architect determines whether the bug is local or structural.
-4. Coder fixes root cause.
-5. Test Engineer creates regression evidence independently.
-6. Reviewer confirms fix does not introduce nearby regressions.
-7. QA verifies original defect no longer reproduces and checks nearby behavior.
-
-Do not accept a patch that only hides the visible symptom when root cause remains.
-
----
-
-# 39. SPECIAL RULE FOR REFACTORS
-
-Refactors must preserve externally observable behavior unless the task explicitly changes it.
-
-Require:
-
-* architecture rationale;
-* regression protection;
-* compatibility analysis;
-* focused diff.
-
-Do not allow a "refactor" to silently change business behavior.
-
-QA may use a targeted smoke/regression scope rather than broad exploratory testing.
-
----
-
-# 40. SPECIAL RULE FOR DATABASE MIGRATIONS
-
-Require Architect and Reviewer to consider:
-
-* existing production data;
-* nullability;
-* defaults;
-* indexes;
-* constraints;
-* migration ordering;
-* backward compatibility;
-* rollout;
-* rollback implications.
-
-Test Engineer should validate migration semantics when practical.
-
-Do not assume an empty database.
-
----
-
-# 41. SPECIAL RULE FOR SECURITY-SENSITIVE WORK
-
-For changes touching:
-
-* authentication;
-* authorization;
-* sessions;
-* secrets;
-* payments;
-* private files;
-* PII;
-* LGPD/privacy boundaries;
-* tenant isolation;
-* destructive actions;
-
-increase scrutiny.
-
-Architect:
-must identify security boundaries.
-
-Coder:
-must use established security mechanisms.
-
-Test Engineer:
-must consider negative security regression tests.
+# 8. GATE SEMANTICS
+
+Interpret specialist verdicts exactly as follows.
+
+Architecture:
+- `READY_FOR_IMPLEMENTATION` → continue.
+- `ARCHITECTURE_BLOCKED` → resolve or BLOCKED.
+
+UI/UX design:
+- `READY_FOR_IMPLEMENTATION` → continue.
+- `UX_BLOCKED` → resolve required product/UX ambiguity or BLOCKED.
+
+Implementation:
+- `IMPLEMENTATION_COMPLETE` → continue.
+- `IMPLEMENTATION_BLOCKED` → resolve or BLOCKED.
+
+Automated testing:
+- `TESTS_PASS` → continue.
+- `TESTS_FOUND_IMPLEMENTATION_DEFECT` → route IMPLEMENTATION DEFECT.
+- `TESTS_BLOCKED` → resolve the blocker or BLOCKED.
+
+UI/UX implementation review:
+- `UX_APPROVED` → continue.
+- `UX_CHANGES_REQUIRED` → route UX/UI ISSUE.
+- `UX_REVIEW_BLOCKED` → restore required evidence/environment or BLOCKED.
 
 Reviewer:
-must explicitly review authorization/data exposure.
+- `APPROVED` → continue.
+- `APPROVED_WITH_NON_BLOCKING_COMMENTS` → continue when no blocking finding remains.
+- `CHANGES_REQUIRED` → route findings by owner.
+- `BLOCKED` → resolve or BLOCKED.
 
 QA:
-must attempt relevant permission and direct-access scenarios safely.
+- `PASS` → eligible for completion.
+- `PASS_WITH_KNOWN_RISKS` → eligible only when residual risk is explicitly non-blocking and compatible with Scope Lock/source-of-truth/acceptance criteria.
+- `FAIL` → route defects.
+- `BLOCKED` → cannot complete.
 
-Do not weaken security to simplify workflow completion.
-
----
-
-# 42. SPECIAL RULE FOR USER-FACING WORK
-
-For UI/mobile/web work:
-
-UI/UX must run before implementation.
-
-UI/UX implementation review must run after implementation.
-
-QA must validate relevant user flow when environment permits.
-
-At minimum consider:
-
-* loading;
-* success;
-* failure;
-* empty;
-* disabled;
-* validation;
-* responsive behavior;
-* accessibility;
-* navigation;
-* duplicate actions.
-
-Do not approve a screen based only on static source code when a rendered interface can be inspected.
+No gate passes because another specialist believes it is probably fine.
 
 ---
 
-# 43. PROJECT SOURCE-OF-TRUTH DISCIPLINE
+# 9. DEFECT OWNERSHIP AND CORRECTION ROUTING
 
-Some repositories intentionally use documentation-first or spec-driven development.
+Route from the earliest ownership that must change.
 
-When the repository declares a source of truth such as:
+**IMPLEMENTATION DEFECT — CODER**
+CODER → TEST ENGINEER when behavior/regression protection is affected → UI/UX REVIEW when user-facing behavior is affected → REVIEWER → QA when applicable.
 
-`docs/`
+**TEST GAP — TEST ENGINEER**
+TEST ENGINEER → REVIEWER → QA when runtime behavior needs revalidation.
 
-or:
+**ARCHITECTURAL ISSUE/DEFECT — ARCHITECT**
+ARCHITECT → CODER → TEST ENGINEER → UI/UX REVIEW when relevant → REVIEWER → QA.
 
-`specs/`
+**UX/UI ISSUE or DEFECT**
+UI/UX ENGINEER owns product/design decisions; CODER owns implementation divergence from approved UX. Route from the responsible owner, then through affected downstream gates.
 
-or:
+**ENVIRONMENT DEFECT**
+Route to the appropriate environment/infrastructure owner. Never patch production merely to make an invalid test/QA environment pass.
 
-`architecture/`
+For specialized finding labels such as accessibility defects, route by root cause: product/design decision → UI/UX ENGINEER; implementation divergence → CODER; missing durable automated protection → TEST ENGINEER.
 
-respect it.
+After correction, rerun only invalidated and required downstream gates. Preserve approved upstream decisions unless the correction invalidates them.
 
-Do not infer product behavior from implementation alone when authoritative specifications exist.
+For correction invocations, build a Correction Slice instead of replaying historical context:
 
-If implementation contradicts authoritative documentation, surface the discrepancy.
+## Correction Slice
 
-Do not silently update the spec to match accidental implementation.
+### Finding
+<specific unresolved finding>
 
----
+### Evidence
+<minimum reproduction/evidence>
 
-# 44. SPEC IMPLEMENTATION MODE
+### Affected Behavior / Constraint
+<what must remain true>
 
-When the user says:
+### Current State
+<affected files/diff/runtime state>
 
-"Implement spec X"
+### Required Outcome
+<what this specialist must correct or clarify>
 
-or equivalent:
-
-1. Treat the selected spec as Scope Lock.
-2. Read the complete spec.
-3. Read required linked context.
-4. Determine current implementation state.
-5. Identify already-completed portions.
-6. Do not reimplement completed behavior unnecessarily.
-7. Implement only missing or incorrect parts required by the spec.
-8. Preserve explicit exclusions.
-9. Follow repository documentation-update requirements after implementation when the spec requires them.
-
-The workflow should allow the user's prompt to remain concise.
+For re-review, pass previous blocking findings, the correction delta, affected validation/test evidence, and only upstream decisions invalidated by the correction. For QA retest, pass the original defect/reproduction, expected corrected behavior, corrected delta, nearby regression target, runtime instructions, and relevant new automated evidence.
 
 ---
 
-# 45. EXAMPLE — CHULA-LIKE SPEC REPOSITORY
+# 10. TASK MODIFIERS
 
-A prompt such as:
+Task modifiers change gate applicability or required confidence, not specialist ownership.
 
-Implement Phase 5.4 Slice 6 using the software-development-workflow.
+**BUG FIX**
+Require root-cause correction and regression evidence. QA retests the original failure when QA applies.
 
-should result conceptually in:
+**REFACTOR**
+Externally observable behavior remains unchanged unless explicitly requested. Emphasize compatibility/regression evidence; QA may be targeted.
 
-MAIN ORCHESTRATOR
-→ read applicable repository instructions and Phase 5.4 project skill
-→ resolve Slice 6 and source docs
-→ ARCHITECT
-→ UI/UX ENGINEER if user-facing
-→ CODER
-→ TEST ENGINEER
-→ UI/UX IMPLEMENTATION REVIEW if user-facing
-→ REVIEWER
-→ QA
-→ correction loops if necessary
-→ final consolidated result
+**DATABASE / MIGRATION**
+Treat as architecture, persistence, compatibility, and regression-sensitive work.
 
-The user should not need to manually call each specialist.
+**INFRASTRUCTURE / INTEGRATION**
+Treat as architecture, contract, failure-mode, and runtime-sensitive work.
 
----
+**SECURITY-SENSITIVE**
+Require explicit scrutiny at all applicable architecture, implementation, testing, review, and QA gates. Never reduce security requirements to obtain workflow completion.
 
-# 46. HANDOFF PRESERVATION
+**USER-FACING**
+Require UI/UX design and UI/UX implementation review for meaningful user-facing behavior. Run QA when executable observable product behavior exists.
 
-The main thread is responsible for preserving specialist handoffs.
-
-Do not expect downstream agents to rediscover every previous decision.
-
-Pass only relevant distilled context.
-
-Do not flood downstream agents with raw logs when a concise handoff is available.
-
-Important decisions must survive between stages.
+**SPEC IMPLEMENTATION**
+The selected spec/slice is Scope Lock. Implement only required missing/incorrect behavior and preserve explicit exclusions.
 
 ---
 
-# 47. CONTEXT HYGIENE
+# 11. CONTEXT SLICING
 
-Keep noisy intermediate work inside subagent threads when possible.
+Context is not transitive. Do not forward information merely because an upstream specialist received or produced it. Rebuild every invocation from the Workflow Context Ledger for the current consumer.
 
-The main thread should retain primarily:
+Prefer primary/normative context over previous-agent interpretation. For independent gates, pass the original constraint and relevant evidence rather than another agent's conclusion that the constraint was satisfied.
 
-* user requirement;
-* Scope Lock;
-* project constraints;
-* Architecture Handoff;
-* UI/UX Handoff;
-* Implementation Handoff;
-* Test Handoff;
-* Review findings;
-* QA findings;
-* unresolved risks;
-* workflow state.
+Prefer pointers over copied payload when the specialist can inspect the source directly. Use repository paths, symbols, ADR/spec references, commit/diff references, and runtime instructions instead of reproducing large source documents, diffs, logs, or prior handoffs inline.
 
-Do not copy entire build logs into the main thread unless necessary to diagnose a blocker.
+Do not resend information that the specialist can cheaply discover locally unless it is an authoritative decision, required constraint, unresolved finding, or evidence needed for the gate. Do not promote raw exploration notes into downstream context unless they became a decision, constraint, finding, risk, or required evidence.
 
----
+Use these primary consumer slices:
 
-# 48. VALIDATION STRATEGY
+- **Architect** — architecture-relevant Scope Lock, authoritative source references, task modifiers, affected surfaces, relevant repository state.
+- **UI/UX Design** — user-facing scope/product references plus only architecture constraints that affect observable behavior, available capabilities, permissions, integrations/runtime states, or UX risk.
+- **Coder** — implementation scope plus architecture placement/boundaries/constraints and applicable data/API/security impact; UI/UX flow, required states, responsive/accessibility requirements, copy/feedback, implementation constraints, and acceptance criteria.
+- **Test Engineer** — required behavior, test-relevant architecture invariants, applicable UI/UX acceptance criteria/states, implementation behavior, changed surfaces, rules/invariants, side effects, error paths, known risks, test risk areas, and relevant validation evidence.
+- **UI/UX Implementation Review** — full approved UI/UX Handoff when useful as the normative comparison record, plus user-facing implementation delta, changed UI references, render/runtime instructions, and unresolved UX/UI findings. Do not add unrelated handoffs by default.
+- **Reviewer** — scope/exclusions, normative architecture constraints, applicable UI/UX acceptance criteria/implementation constraints and review verdict, implementation orientation/known risks, relevant Test Handoff evidence, and current diff/repository references. Prefer the actual diff over the Coder's interpretation of alignment.
+- **QA** — observable required behavior/acceptance criteria, relevant product flow/states/permissions, concise implementation delta, runtime/environment/test-data instructions, and only remaining test/review/implementation risks that affect runtime validation.
 
-Validation should progress from narrow to broad.
+Do not forward historical findings wholesale. Pass only:
+1. unresolved findings owned by the current specialist;
+2. resolved findings this gate must specifically revalidate;
+3. residual risks that materially affect this specialist's work.
 
-Typical progression:
+Use three slice modes:
 
-affected check
-→ affected module
-→ integration validation
-→ broader repository gate
+**INITIAL SLICE** — scope, constraints, source references, relevant upstream decisions, current state, and open relevant risks.
 
-Use repository-defined commands.
+**REVIEW SLICE** — scope, normative expectations, current implementation state, relevant independent evidence, and remaining findings/risks.
 
-Do not invent replacements when official project commands exist.
+**CORRECTION SLICE** — specific finding, evidence, affected behavior/constraint, correction state, and required outcome.
 
-Do not claim success for checks that were not executed.
+Preserve full handoffs in the ledger even when only a slice is forwarded. Context reduction must not discard canonical decisions or evidence needed by later gates.
 
 ---
 
-# 49. PRE-EXISTING FAILURES
+# 12. VALIDATION INTEGRITY
 
-When validation exposes unrelated baseline failures:
+A gate passes only from evidence actually produced by its responsible specialist.
 
-1. verify they are pre-existing when possible;
-2. separate them from current-task failures;
-3. do not silently fix unrelated code;
-4. report them explicitly.
+Never convert NOT EXECUTED, unavailable evidence, a confirmed unrelated baseline failure, or deliberately weakened verification into success.
 
-A pre-existing unrelated failure should not automatically invalidate correct current work, but it may limit confidence in broad validation.
+Separate confirmed pre-existing failures from current-task failures and preserve their effect on confidence.
 
----
-
-# 50. NO FAKE GREEN
-
-Never permit an agent to obtain success by:
-
-* disabling tests;
-* removing assertions;
-* skipping validations without disclosure;
-* weakening security;
-* swallowing exceptions;
-* changing acceptance criteria;
-* deleting failing scenarios;
-* marking known defects as success.
-
-A green pipeline produced by reducing verification is failure.
+Never alter Scope Lock, source-of-truth, acceptance criteria, security expectations, or valid verification merely to obtain a green workflow.
 
 ---
 
-# 51. NO SILENT SPEC CHANGES
+# 13. LOOP CONTROL, COMPLETION, AND BLOCKING
 
-The workflow may discover that the spec itself needs revision.
+Track correction attempts per unresolved issue/gate. After 3 unsuccessful cycles for the same issue, return BLOCKED with the issue, specialists involved, attempted corrections, current evidence, and why further autonomous iteration is unlikely to help.
 
-Do not silently alter requirements to fit implementation.
+COMPLETE requires every applicable condition:
 
-If a spec change is genuinely required:
+- Scope Lock satisfied.
+- required Architecture/UI/UX design gates passed.
+- `IMPLEMENTATION_COMPLETE`.
+- `TESTS_PASS` when Test Engineer is required.
+- `UX_APPROVED` when UI/UX implementation review is required.
+- Reviewer `APPROVED` or acceptable `APPROVED_WITH_NON_BLOCKING_COMMENTS`.
+- QA `PASS` or acceptable `PASS_WITH_KNOWN_RISKS` when QA is required.
+- no unresolved BLOCKER/HIGH finding.
+- material MEDIUM findings resolved or explicitly accepted as non-blocking by the responsible gate.
+- required validation executed or limitations disclosed.
+- scope remains reasonable and unrelated user work is intact.
 
-* report why;
-* identify affected source-of-truth documents;
-* route architectural/product implications appropriately;
-* distinguish requirement correction from implementation work.
-
----
-
-# 52. NO AUTOMATIC SCOPE EXPANSION
-
-If agents discover:
-
-* unrelated technical debt;
-* neighboring bugs;
-* architectural opportunities;
-* UX improvements outside the target;
-* dependency upgrades;
-
-record them separately.
-
-Do not implement them unless necessary for the selected task.
+Use BLOCKED rather than false success when any essential required gate cannot safely complete, including unavailable specialist/environment/dependency, unresolved source/architecture conflict, destructive ambiguity, or exhausted correction loop.
 
 ---
 
-# 53. FINAL COMPLETION GATE
+# 14. FINAL WORKFLOW HANDOFF
 
-A meaningful production task is COMPLETE only when all required conditions are satisfied:
-
-* Scope Lock requirement implemented;
-* Architecture gate passed;
-* UI/UX gate passed when applicable;
-* production implementation complete;
-* Test Engineer reports passing meaningful automated evidence;
-* UI/UX implementation review approved when applicable;
-* Reviewer approves or approves with only non-blocking comments;
-* QA passes or passes with explicitly acceptable known risks when applicable;
-* no unresolved BLOCKER or HIGH defect remains;
-* meaningful MEDIUM issues are resolved or explicitly justified as non-blocking;
-* required repository validations were executed or limitations explicitly reported;
-* diff remains reasonably scoped;
-* no unrelated user work was destroyed.
-
----
-
-# 54. BLOCKED COMPLETION
-
-Use BLOCKED rather than false success when:
-
-* required specialist unavailable;
-* source-of-truth conflict cannot be resolved;
-* required environment unavailable for essential validation;
-* critical external dependency prevents verification;
-* architecture is unresolved;
-* correction loop fails repeatedly;
-* destructive ambiguity prevents safe implementation.
-
-Explain precisely what prevents completion.
-
----
-
-# 55. FINAL RESPONSE FORMAT
-
-After the workflow finishes, return a concise consolidated result.
-
-Use:
+Return a concise consolidated result, not every specialist's full output.
 
 ## Workflow Verdict
+`COMPLETE` | `COMPLETE_WITH_KNOWN_RISKS` | `BLOCKED`
 
-COMPLETE
-
-COMPLETE WITH KNOWN RISKS
-
-or
-
-BLOCKED
+Use `COMPLETE_WITH_KNOWN_RISKS` only for explicit accepted non-blocking residual risks compatible with Scope Lock, source-of-truth, required gates, and acceptance criteria.
 
 ## Implemented
-
 <what changed>
 
 ## Agents Executed
-
-Architect:
-<RUN / SKIPPED — reason>
-
-UI/UX:
-<RUN / SKIPPED — reason>
-
-Coder:
-<RUN / SKIPPED — reason>
-
-Test Engineer:
-<RUN / SKIPPED — reason>
-
-UI/UX Implementation Review:
-<RUN / SKIPPED — reason>
-
-Reviewer:
-<RUN / SKIPPED — reason>
-
-QA:
-<RUN / SKIPPED — reason>
+- Architect: <RUN / SKIPPED — reason>
+- UI/UX: <RUN / SKIPPED — reason>
+- Coder: <RUN / SKIPPED — reason>
+- Test Engineer: <RUN / SKIPPED — reason>
+- UI/UX Implementation Review: <RUN / SKIPPED — reason>
+- Reviewer: <RUN / SKIPPED — reason>
+- QA: <RUN / SKIPPED — reason>
 
 ## Validation
-
-<important commands/results>
+<important results/limitations>
 
 ## Review
-
-<review verdict>
+<verdict/findings>
 
 ## QA
-
-<QA verdict>
+<verdict/environment or SKIPPED — reason>
 
 ## Remaining Risks
-
-<only real risks>
+<real residual risks only>
 
 ## Files / Scope
+<changed areas and scope status>
 
-<high-level changed areas>
-
-Do not reproduce every subagent's full output unless requested.
-
----
-
-# 56. ORCHESTRATOR SHOULD NOT ASK FOR PERMISSION BETWEEN NORMAL GATES
-
-Once the user has asked to implement a task using this workflow, proceed through normal workflow stages without asking:
-
-"Should I continue to tests?"
-
-"Should I run review?"
-
-"Should I do QA?"
-
-Those stages are part of the requested workflow.
-
-Ask for additional user input only when a genuinely unresolved requirement or safety-sensitive decision cannot be determined from repository evidence.
-
-Do not interrupt the workflow for routine specialist handoffs.
-
----
-
-# 57. ORCHESTRATOR SHOULD NOT STOP AFTER IMPLEMENTATION
-
-The Coder reporting IMPLEMENTATION_COMPLETE is not completion.
-
-Continue automatically through:
-
-TEST ENGINEER
-
-then:
-
-UI/UX IMPLEMENTATION REVIEW when applicable
-
-then:
-
-REVIEWER
-
-then:
-
-QA when applicable
-
-unless a gate becomes BLOCKED.
-
----
-
-# 58. ORCHESTRATOR SHOULD NOT STOP AT FIRST DEFECT
-
-A Reviewer or QA defect is not automatically the end of the workflow.
-
-Route the finding to the correct owner.
-
-Perform the smallest necessary correction loop.
-
-Revalidate.
-
-Stop only when:
-
-* quality gates pass;
-* the workflow becomes blocked;
-* loop control threshold is reached.
-
----
-
-# 59. QUALITY OVER AGENT COUNT
-
-The purpose of this workflow is not to demonstrate that many agents ran.
-
-The purpose is to produce trustworthy software changes.
-
-Skip unnecessary specialists.
-
-Run necessary specialists rigorously.
-
-Use independent validation.
-
-Maintain clear ownership.
-
-Avoid duplicated work.
-
----
-
-# 60. FINAL ORCHESTRATION PRINCIPLE
-
-Always remember:
-
-The main thread coordinates.
-
-The Architect decides where the change belongs.
-
-The UI/UX Engineer decides how users should experience it.
-
-The Coder implements it using expert knowledge of the actual language and framework.
-
-The Test Engineer independently proves important behavior through the smallest high-confidence automated suite.
-
-The Reviewer independently challenges correctness, architecture, security, maintainability, and test quality.
-
-The QA Engineer validates whether the resulting product actually behaves correctly under realistic conditions.
-
-Do not collapse these responsibilities back into one agent.
-
-Resolve the task.
-
-Lock the scope.
-
-Delegate deliberately.
-
-Preserve handoffs.
-
-Route defects to owners.
-
-Revalidate corrections.
-
-Avoid unnecessary loops.
-
-Do not fake successful gates.
-
-Finish only when the software has earned confidence.
+Keep the final workflow handoff compact: summarize successful gates, expand only material limitations/findings/risks, and never replay specialist handoffs. Do not stop after implementation or the first defect. Route, correct, and revalidate until COMPLETE or BLOCKED.
