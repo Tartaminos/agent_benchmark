@@ -1,11 +1,13 @@
 ---
 name: software-development-workflow
-description: Orchestrate meaningful production software changes through architect, UI/UX, coder, test-engineer, reviewer, and QA agents with explicit gates, compact handoffs, context slicing, and correction routing.
+description: Orchestrate meaningful production software changes through architect, UI/UX, coder, and test-engineer agents with explicit gates, compact handoffs, context slicing, and correction routing.
 ---
 
 # Software Development Workflow
 
-The main Codex thread is the ORCHESTRATOR. It coordinates specialized agents; specialists perform their owned engineering work. The goal is a scoped, coherent implementation with independent automated testing, review, runtime validation when applicable, controlled correction loops, and minimal non-transitive context between agents.
+The main Codex thread is the ORCHESTRATOR. It coordinates specialized agents; specialists perform their owned engineering work. The goal is a scoped, coherent implementation with independent automated testing, UI/UX implementation review when applicable, controlled correction loops, and minimal non-transitive context between agents.
+
+This workflow does not invoke `reviewer` or `qa-engineer`. Those agents may exist in the repository but are outside this orchestration.
 
 ---
 
@@ -15,10 +17,8 @@ Use these exact roles:
 
 - `architect` — architecture, placement, boundaries, dependency direction.
 - `ui-ux-engineer` — user experience before implementation and UI/UX review after.
-- `coder` — production implementation.
+- `coder` — production implementation, implementation validation, and final self-review.
 - `test-engineer` — independent automated regression evidence.
-- `reviewer` — independent implementation/diff and test review.
-- `qa-engineer` — realistic runtime/product validation.
 
 The orchestrator owns task/repository discovery, source-of-truth resolution, Scope Lock, agent applicability/spawning, workflow state, context ledger, context slicing, handoff preservation, correction routing, gate decisions, and final consolidation. It may inspect repository evidence and run non-mutating discovery needed for coordination.
 
@@ -96,19 +96,16 @@ ARCHITECT when required
 → CODER
 → TEST ENGINEER when test-relevant behavior changed
 → UI/UX IMPLEMENTATION REVIEW when UI/UX design ran
-→ REVIEWER
-→ QA when runtime/product validation adds evidence
+→ COMPLETE
 
 Applicability:
 
 - `coder`: mandatory for production implementation.
-- `reviewer`: mandatory for meaningful production changes.
 - `architect`: mandatory for features/specs, meaningful bugs/refactors, migrations, integrations, structural/unfamiliar work, or material architecture/security/data impact. Skip only genuinely mechanical work with no architectural consequence.
 - `test-engineer`: mandatory when behavior, logic, contracts, persistence, integrations, security, UI behavior, or regression risk changes.
 - `ui-ux-engineer`: mandatory for meaningful user-visible flow, interaction, responsive/accessibility behavior, navigation, copy, UI states, or feedback changes.
-- `qa-engineer`: default for meaningful observable runtime/product behavior. Skip only when it cannot add evidence, such as docs/comments/formatting, purely test-internal changes, or genuinely mechanical internal changes.
 
-When uncertain about QA, prefer targeted QA over skipping. Use the smallest pipeline that preserves independent confidence.
+Use the smallest pipeline that preserves required architecture, product, implementation, and independent automated-test confidence.
 
 ---
 
@@ -122,8 +119,6 @@ UX_DESIGN
 IMPLEMENTATION
 AUTOMATED_TESTING
 UX_IMPLEMENTATION_REVIEW
-CODE_REVIEW
-QA
 CORRECTION
 COMPLETE
 BLOCKED
@@ -137,10 +132,9 @@ Also maintain a canonical Workflow Context Ledger containing, as applicable:
 - accepted architecture decisions;
 - accepted UI/UX decisions;
 - current implementation state;
+- implementation validation and self-review evidence;
 - automated-test evidence;
 - UI/UX implementation-review result;
-- reviewer findings;
-- QA evidence;
 - current repository/diff/runtime state;
 - unresolved findings;
 - accepted residual risks.
@@ -151,7 +145,7 @@ The ledger is orchestration state, not a repository artifact. Do not create a pe
 
 Normal progression follows the applicable pipeline. A failed gate enters CORRECTION and routes to the earliest owned decision/work that must change. Resume from the earliest invalidated gate; never restart unaffected earlier gates. A blocked required gate prevents completion.
 
-After the user invokes this workflow, progress automatically through all applicable gates and correction loops. Do not ask permission between routine stages. `IMPLEMENTATION_COMPLETE` is not workflow completion. Stop only at COMPLETE or BLOCKED.
+After the user invokes this workflow, progress automatically through all applicable gates and correction loops. Do not ask permission between routine stages. `IMPLEMENTATION_COMPLETE` is not workflow completion when another applicable downstream gate remains. Stop only at COMPLETE or BLOCKED.
 
 ---
 
@@ -163,11 +157,9 @@ Expected records:
 
 - `architect` → Architecture Handoff.
 - `ui-ux-engineer` design invocation → UI/UX Handoff.
-- `coder` → Implementation Handoff.
+- `coder` → Implementation Handoff, including implementation validation/self-review evidence.
 - `test-engineer` → Test Handoff.
 - `ui-ux-engineer` implementation-review invocation → UI/UX review verdict/findings.
-- `reviewer` → Review Handoff.
-- `qa-engineer` → QA Handoff.
 
 A full handoff is a canonical workflow record, not the default prompt for the next specialist.
 
@@ -212,30 +204,18 @@ UI/UX design:
 - `UX_BLOCKED` → resolve required product/UX ambiguity or BLOCKED.
 
 Implementation:
-- `IMPLEMENTATION_COMPLETE` → continue.
+- `IMPLEMENTATION_COMPLETE` → continue. This verdict implies the coder completed its implementation validation and final self-review.
 - `IMPLEMENTATION_BLOCKED` → resolve or BLOCKED.
 
 Automated testing:
-- `TESTS_PASS` → continue.
+- `TESTS_PASS` → continue or complete when no later applicable gate remains.
 - `TESTS_FOUND_IMPLEMENTATION_DEFECT` → route IMPLEMENTATION DEFECT.
 - `TESTS_BLOCKED` → resolve the blocker or BLOCKED.
 
 UI/UX implementation review:
-- `UX_APPROVED` → continue.
+- `UX_APPROVED` → continue or complete when no later applicable gate remains.
 - `UX_CHANGES_REQUIRED` → route UX/UI ISSUE.
 - `UX_REVIEW_BLOCKED` → restore required evidence/environment or BLOCKED.
-
-Reviewer:
-- `APPROVED` → continue.
-- `APPROVED_WITH_NON_BLOCKING_COMMENTS` → continue when no blocking finding remains.
-- `CHANGES_REQUIRED` → route findings by owner.
-- `BLOCKED` → resolve or BLOCKED.
-
-QA:
-- `PASS` → eligible for completion.
-- `PASS_WITH_KNOWN_RISKS` → eligible only when residual risk is explicitly non-blocking and compatible with Scope Lock/source-of-truth/acceptance criteria.
-- `FAIL` → route defects.
-- `BLOCKED` → cannot complete.
 
 No gate passes because another specialist believes it is probably fine.
 
@@ -246,19 +226,19 @@ No gate passes because another specialist believes it is probably fine.
 Route from the earliest ownership that must change.
 
 **IMPLEMENTATION DEFECT — CODER**
-CODER → TEST ENGINEER when behavior/regression protection is affected → UI/UX REVIEW when user-facing behavior is affected → REVIEWER → QA when applicable.
+CODER → TEST ENGINEER when behavior/regression protection is affected → UI/UX REVIEW when user-facing behavior is affected.
 
 **TEST GAP — TEST ENGINEER**
-TEST ENGINEER → REVIEWER → QA when runtime behavior needs revalidation.
+TEST ENGINEER → UI/UX REVIEW only when the test correction changes or invalidates user-facing review evidence.
 
 **ARCHITECTURAL ISSUE/DEFECT — ARCHITECT**
-ARCHITECT → CODER → TEST ENGINEER → UI/UX REVIEW when relevant → REVIEWER → QA.
+ARCHITECT → CODER → TEST ENGINEER when applicable → UI/UX REVIEW when relevant.
 
 **UX/UI ISSUE or DEFECT**
 UI/UX ENGINEER owns product/design decisions; CODER owns implementation divergence from approved UX. Route from the responsible owner, then through affected downstream gates.
 
 **ENVIRONMENT DEFECT**
-Route to the appropriate environment/infrastructure owner. Never patch production merely to make an invalid test/QA environment pass.
+Route to the appropriate environment/infrastructure owner. Never patch production merely to make an invalid test or UI/UX review environment pass.
 
 For specialized finding labels such as accessibility defects, route by root cause: product/design decision → UI/UX ENGINEER; implementation divergence → CODER; missing durable automated protection → TEST ENGINEER.
 
@@ -283,8 +263,6 @@ For correction invocations, build a Correction Slice instead of replaying histor
 ### Required Outcome
 <what this specialist must correct or clarify>
 
-For re-review, pass previous blocking findings, the correction delta, affected validation/test evidence, and only upstream decisions invalidated by the correction. For QA retest, pass the original defect/reproduction, expected corrected behavior, corrected delta, nearby regression target, runtime instructions, and relevant new automated evidence.
-
 ---
 
 # 10. TASK MODIFIERS
@@ -292,10 +270,10 @@ For re-review, pass previous blocking findings, the correction delta, affected v
 Task modifiers change gate applicability or required confidence, not specialist ownership.
 
 **BUG FIX**
-Require root-cause correction and regression evidence. QA retests the original failure when QA applies.
+Require root-cause correction and durable regression evidence when Test Engineer applies.
 
 **REFACTOR**
-Externally observable behavior remains unchanged unless explicitly requested. Emphasize compatibility/regression evidence; QA may be targeted.
+Externally observable behavior remains unchanged unless explicitly requested. Emphasize compatibility and regression evidence.
 
 **DATABASE / MIGRATION**
 Treat as architecture, persistence, compatibility, and regression-sensitive work.
@@ -304,10 +282,10 @@ Treat as architecture, persistence, compatibility, and regression-sensitive work
 Treat as architecture, contract, failure-mode, and runtime-sensitive work.
 
 **SECURITY-SENSITIVE**
-Require explicit scrutiny at all applicable architecture, implementation, testing, review, and QA gates. Never reduce security requirements to obtain workflow completion.
+Require explicit scrutiny at all applicable architecture, implementation/self-review, automated-testing, and UI/UX gates. Never reduce security requirements to obtain workflow completion.
 
 **USER-FACING**
-Require UI/UX design and UI/UX implementation review for meaningful user-facing behavior. Run QA when executable observable product behavior exists.
+Require UI/UX design and UI/UX implementation review for meaningful user-facing behavior.
 
 **SPEC IMPLEMENTATION**
 The selected spec/slice is Scope Lock. Implement only required missing/incorrect behavior and preserve explicit exclusions.
@@ -329,10 +307,8 @@ Use these primary consumer slices:
 - **Architect** — architecture-relevant Scope Lock, authoritative source references, task modifiers, affected surfaces, relevant repository state.
 - **UI/UX Design** — user-facing scope/product references plus only architecture constraints that affect observable behavior, available capabilities, permissions, integrations/runtime states, or UX risk.
 - **Coder** — implementation scope plus architecture placement/boundaries/constraints and applicable data/API/security impact; UI/UX flow, required states, responsive/accessibility requirements, copy/feedback, implementation constraints, and acceptance criteria.
-- **Test Engineer** — required behavior, test-relevant architecture invariants, applicable UI/UX acceptance criteria/states, implementation behavior, changed surfaces, rules/invariants, side effects, error paths, known risks, test risk areas, and relevant validation evidence.
+- **Test Engineer** — required behavior, test-relevant architecture invariants, applicable UI/UX acceptance criteria/states, implementation behavior, changed surfaces, rules/invariants, side effects, error paths, known risks, test risk areas, and relevant implementation validation/self-review evidence.
 - **UI/UX Implementation Review** — full approved UI/UX Handoff when useful as the normative comparison record, plus user-facing implementation delta, changed UI references, render/runtime instructions, and unresolved UX/UI findings. Do not add unrelated handoffs by default.
-- **Reviewer** — scope/exclusions, normative architecture constraints, applicable UI/UX acceptance criteria/implementation constraints and review verdict, implementation orientation/known risks, relevant Test Handoff evidence, and current diff/repository references. Prefer the actual diff over the Coder's interpretation of alignment.
-- **QA** — observable required behavior/acceptance criteria, relevant product flow/states/permissions, concise implementation delta, runtime/environment/test-data instructions, and only remaining test/review/implementation risks that affect runtime validation.
 
 Do not forward historical findings wholesale. Pass only:
 1. unresolved findings owned by the current specialist;
@@ -371,11 +347,9 @@ COMPLETE requires every applicable condition:
 
 - Scope Lock satisfied.
 - required Architecture/UI/UX design gates passed.
-- `IMPLEMENTATION_COMPLETE`.
+- `IMPLEMENTATION_COMPLETE`, including completed coder validation and final self-review.
 - `TESTS_PASS` when Test Engineer is required.
 - `UX_APPROVED` when UI/UX implementation review is required.
-- Reviewer `APPROVED` or acceptable `APPROVED_WITH_NON_BLOCKING_COMMENTS`.
-- QA `PASS` or acceptable `PASS_WITH_KNOWN_RISKS` when QA is required.
 - no unresolved BLOCKER/HIGH finding.
 - material MEDIUM findings resolved or explicitly accepted as non-blocking by the responsible gate.
 - required validation executed or limitations disclosed.
@@ -403,17 +377,12 @@ Use `COMPLETE_WITH_KNOWN_RISKS` only for explicit accepted non-blocking residual
 - Coder: <RUN / SKIPPED — reason>
 - Test Engineer: <RUN / SKIPPED — reason>
 - UI/UX Implementation Review: <RUN / SKIPPED — reason>
-- Reviewer: <RUN / SKIPPED — reason>
-- QA: <RUN / SKIPPED — reason>
 
 ## Validation
-<important results/limitations>
+<important implementation/test results or limitations>
 
-## Review
-<verdict/findings>
-
-## QA
-<verdict/environment or SKIPPED — reason>
+## Self-Review
+<coder final-diff self-review result and material corrections, or limitation>
 
 ## Remaining Risks
 <real residual risks only>
