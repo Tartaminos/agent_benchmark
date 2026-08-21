@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_20_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_20_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -50,6 +50,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_120000) do
     t.index ["order_id", "order_item_id"], name: "index_order_items_on_order_id_and_order_item_id", unique: true
     t.index ["order_id"], name: "index_order_items_on_order_id"
     t.index ["product_id"], name: "index_order_items_on_product_id"
+    t.index ["seller_id", "order_id"], name: "index_order_items_on_seller_id_and_order_id"
     t.index ["seller_id"], name: "index_order_items_on_seller_id"
   end
 
@@ -118,6 +119,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_120000) do
     t.index ["product_id"], name: "index_products_on_product_id", unique: true
   end
 
+  create_table "seller_performance_reports", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "csv_content"
+    t.date "end_date", null: false
+    t.uuid "report_id", null: false
+    t.bigint "seller_id", null: false
+    t.date "start_date", null: false
+    t.string "status", limit: 10, default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["report_id"], name: "index_seller_performance_reports_on_report_id", unique: true
+    t.index ["seller_id"], name: "index_seller_performance_reports_on_seller_id"
+    t.check_constraint "start_date <= end_date", name: "seller_performance_reports_date_range_check"
+    t.check_constraint "status::text = 'completed'::text AND csv_content IS NOT NULL OR status::text <> 'completed'::text AND csv_content IS NULL", name: "seller_performance_reports_csv_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "seller_performance_reports_status_check"
+  end
+
   create_table "sellers", force: :cascade do |t|
     t.string "city", limit: 40, null: false
     t.datetime "created_at", null: false
@@ -134,4 +151,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_120000) do
   add_foreign_key "order_payments", "orders"
   add_foreign_key "order_reviews", "orders"
   add_foreign_key "orders", "customers"
+  add_foreign_key "seller_performance_reports", "sellers"
 end

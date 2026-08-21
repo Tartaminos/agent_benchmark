@@ -6,6 +6,9 @@ Rails.application.routes.draw do
   namespace :api do
     resources :orders, only: %i[index show], param: :order_id
     get "sellers/:seller_id/orders", to: "seller_orders#index", as: :seller_orders
+    post "sellers/:seller_id/reports", to: "seller_reports#create", as: :seller_reports
+    get "reports/:report_id", to: "reports#show", as: :report
+    get "reports/:report_id/download", to: "reports#download", as: :report_download
   end
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
