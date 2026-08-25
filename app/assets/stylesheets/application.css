@@ -8,3 +8,222 @@
  *
  * Consider organizing styles into separate files for maintainability.
  */
+
+body:has(.orders-page) {
+  margin: 0;
+}
+
+.orders-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: clamp(1rem, 4vw, 3rem);
+  color: #17212b;
+  background: #f4f6f8;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.orders-panel {
+  width: min(100%, 54rem);
+  margin: 0 auto;
+}
+
+.orders-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 3rem);
+  line-height: 1.1;
+}
+
+.orders-header p {
+  margin: 0.75rem 0 1.5rem;
+  color: #4b5968;
+  font-size: 1.05rem;
+}
+
+.orders-search {
+  margin-bottom: 1.25rem;
+}
+
+.orders-strategy-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 700;
+}
+
+.orders-search-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.orders-strategy-select {
+  box-sizing: border-box;
+  min-width: 0;
+  flex: 1;
+  border: 0.0625rem solid #98a2b3;
+  border-radius: 0.5rem;
+  padding: 0.7rem 2.5rem 0.7rem 0.75rem;
+  color: #17212b;
+  background: #fff;
+  font: inherit;
+}
+
+.orders-strategy-select:focus-visible,
+.orders-button:focus-visible {
+  outline: 0.2rem solid #ffbf47;
+  outline-offset: 0.2rem;
+}
+
+.orders-strategy-help {
+  overflow-wrap: anywhere;
+  margin: 0.55rem 0 0;
+  color: #4b5968;
+  font-size: 0.9rem;
+}
+
+.orders-button {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.1rem;
+  color: #fff;
+  background: #155eef;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.orders-button:hover:not(:disabled) {
+  background: #0b4ed0;
+}
+
+.orders-button:disabled,
+.orders-strategy-select:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.orders-status,
+.orders-error {
+  margin: 0 0 1.25rem;
+}
+
+.orders-error {
+  border-left: 0.25rem solid #b42318;
+  padding: 0.75rem 1rem;
+  color: #7a271a;
+  background: #fef3f2;
+}
+
+.orders-list {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order-card {
+  min-width: 0;
+  border: 0.0625rem solid #d0d5dd;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: 0 0.125rem 0.375rem rgb(16 24 40 / 6%);
+}
+
+.order-card h2 {
+  overflow-wrap: anywhere;
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.order-card dl {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+}
+
+.order-card dl > div {
+  min-width: 0;
+}
+
+.order-card dt {
+  margin-bottom: 0.2rem;
+  color: #4b5968;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.order-card dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.order-related {
+  margin-top: 1.25rem;
+  border-top: 0.0625rem solid #e4e7ec;
+  padding-top: 1rem;
+}
+
+.order-related summary {
+  border-radius: 0.25rem;
+  color: #155eef;
+  font-weight: 700;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.order-related summary:focus-visible {
+  outline: 0.2rem solid #ffbf47;
+  outline-offset: 0.2rem;
+}
+
+.order-related-content {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+  padding-top: 1.25rem;
+}
+
+.order-related-content h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.order-related-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order-related-list > li {
+  min-width: 0;
+  border-left: 0.1875rem solid #b2ccff;
+  padding: 0.75rem;
+  background: #f8fafc;
+}
+
+.order-related-empty {
+  margin: 0;
+  color: #4b5968;
+}
+
+@media (min-width: 40rem) {
+  .order-card dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 39.999rem) {
+  .orders-search-actions {
+    flex-direction: column;
+  }
+
+  .orders-button,
+  .orders-strategy-select {
+    width: 100%;
+  }
+}

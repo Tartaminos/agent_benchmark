@@ -1,0 +1,46 @@
+<% content_for :title, "Pedidos" %>
+
+<main class="orders-page" data-controller="orders" data-orders-url-value="<%= orders_path(format: :json) %>">
+  <section class="orders-panel" aria-labelledby="orders-title">
+    <header class="orders-header">
+      <h1 id="orders-title">Pedidos</h1>
+      <p>Busque até 250 pedidos e compare as estratégias de consulta.</p>
+    </header>
+
+    <div class="orders-search">
+      <label class="orders-strategy-label" for="orders-strategy">Tipo de busca</label>
+      <div class="orders-search-actions">
+        <select
+          class="orders-strategy-select"
+          id="orders-strategy"
+          aria-describedby="orders-strategy-help"
+          data-orders-target="strategy"
+          data-action="change->orders#updateStrategyHelp"
+        >
+          <option value="n_plus_one">N+1 intencional</option>
+          <option value="lazy_loading">Lazy loading</option>
+          <option value="includes">Eager loading com includes</option>
+          <option value="preload">Eager loading com preload</option>
+          <option value="eager_load">Eager loading com eager_load</option>
+          <option value="joins">JOIN de cliente via joins</option>
+          <option value="raw_sql">SQL puro (PostgreSQL)</option>
+        </select>
+
+        <button
+          class="orders-button"
+          type="button"
+          data-orders-target="button"
+          data-action="orders#load"
+        >Buscar pedidos</button>
+      </div>
+      <p class="orders-strategy-help" id="orders-strategy-help" data-orders-target="strategyHelp">Carrega as associações uma a uma de propósito. Compare as consultas e os tempos no terminal.</p>
+    </div>
+
+    <p class="orders-status" role="status" aria-live="polite" aria-atomic="true" data-orders-target="status">
+      Selecione uma estratégia e clique em ‘Buscar pedidos’.
+    </p>
+    <p class="orders-error" role="alert" data-orders-target="error" hidden></p>
+
+    <div class="orders-results" aria-busy="false" data-orders-target="results"></div>
+  </section>
+</main>
