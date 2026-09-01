@@ -66,3 +66,6 @@ group :test do
 end
 
 gem "csv", "~> 3.3"
+
+gem "pry"
+gem "amazing_print"
