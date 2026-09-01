@@ -214,6 +214,7 @@ class BenchmarkRunner
   end
 
   def execute_codex(command, prompt, events_path, stderr_path)
+    exit_code = nil
     monitor_state = {
       "root_thread_id" => nil,
       "known_paths" => rollout_paths,
