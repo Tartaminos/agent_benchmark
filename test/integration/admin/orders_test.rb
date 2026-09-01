@@ -118,12 +118,39 @@ module Admin
       assert_select "form.sort-form input[name='purchase_to'][value='2024-05-31']"
       assert_select "select[name='sort'] option[value='asc'][selected]"
 
+      next_href = nil
       assert_select "a[aria-label='Next page']" do |links|
-        query = Rack::Utils.parse_nested_query(URI.parse(links.first["href"]).query)
+        next_href = links.first["href"]
+        query = Rack::Utils.parse_nested_query(URI.parse(next_href).query)
         assert_equal filters.merge(page: "2").stringify_keys, query
       end
       assert_select "a", text: "Clear filters" do |links|
         assert links.any? { |link| URI.parse(link["href"]).query.nil? }
+      end
+
+      get next_href
+
+      selected_order_id = format("admin-preserved-%016d", 10)
+      assert_response :ok
+      assert_select "tbody tr", count: 1
+      assert_select ".order-id", text: selected_order_id
+
+      detail_href = nil
+      assert_select "a[aria-label='View order #{selected_order_id}']" do |links|
+        detail_href = links.first["href"]
+        query = Rack::Utils.parse_nested_query(URI.parse(detail_href).query)
+        assert_equal filters.merge(page: "2").stringify_keys, query
+      end
+
+      get detail_href
+
+      assert_response :ok
+      assert_select "#order-detail-title", text: selected_order_id
+      assert_select "tbody tr", count: 1
+      assert_select ".order-id", text: selected_order_id
+      assert_select "a.detail-close" do |links|
+        query = Rack::Utils.parse_nested_query(URI.parse(links.first["href"]).query)
+        assert_equal filters.merge(page: "2").stringify_keys, query
       end
     end
 
