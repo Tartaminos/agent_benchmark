@@ -1,6 +1,9 @@
 Rails.application.routes.draw do
   namespace :api, defaults: { format: :json } do
     resources :orders, only: :show, param: :order_id
+    resources :sellers, only: [] do
+      resources :orders, only: :index, controller: "seller_orders"
+    end
   end
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
