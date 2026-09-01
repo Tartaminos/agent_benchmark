@@ -154,14 +154,151 @@ module Api
       assert_equal({ "error" => "order_not_found" }, response.parsed_body)
     end
 
+    test "lists every delivery classification with equality on time and the public timestamp contract" do
+      create_order(
+        order_id: "order-index-pending-0001",
+        delivered_customer_at: nil
+      )
+      create_order(
+        order_id: "order-index-on-time-0001",
+        delivered_customer_at: Time.utc(2024, 1, 12)
+      )
+      create_order(
+        order_id: "order-index-late-0001",
+        delivered_customer_at: Time.utc(2024, 1, 12, 0, 0, 1)
+      )
+
+      get "/api/orders"
+
+      assert_response :ok
+      body = response.parsed_body
+      assert_equal({ "page" => 1, "per_page" => 25, "total_orders" => 3, "total_pages" => 1 }, body.except("orders"))
+
+      orders = body.fetch("orders").index_by { |order| order.fetch("order_id") }
+      assert_equal %w[late on_time pending], orders.values.pluck("delivery_status").sort
+      assert_equal "pending", orders.fetch("order-index-pending-0001").fetch("delivery_status")
+      assert_equal "on_time", orders.fetch("order-index-on-time-0001").fetch("delivery_status")
+      assert_equal "late", orders.fetch("order-index-late-0001").fetch("delivery_status")
+      assert_nil orders.fetch("order-index-pending-0001").fetch("delivered_customer_at")
+      assert_equal "2024-01-02T03:04:05.000Z", orders.fetch("order-index-on-time-0001").fetch("purchase_at")
+      assert_equal "2024-01-12T00:00:00.000Z", orders.fetch("order-index-on-time-0001").fetch("estimated_delivery_at")
+      assert_equal "2024-01-12T00:00:00.000Z", orders.fetch("order-index-on-time-0001").fetch("delivered_customer_at")
+      orders.each_value do |order|
+        assert_equal %w[delivered_customer_at delivery_status estimated_delivery_at order_id purchase_at status], order.keys.sort
+        refute order.key?("id")
+      end
+    end
+
+    test "filters each delivery status in the database before instantiating records" do
+      create_order(order_id: "order-filter-pending-0001", delivered_customer_at: nil)
+      create_order(order_id: "order-filter-on-time-0001", delivered_customer_at: Time.utc(2024, 1, 11))
+      create_order(order_id: "order-filter-late-0001", delivered_customer_at: Time.utc(2024, 1, 13))
+
+      {
+        "pending" => "order-filter-pending-0001",
+        "on_time" => "order-filter-on-time-0001",
+        "late" => "order-filter-late-0001"
+      }.each do |delivery_status, expected_order_id|
+        instantiated_orders = count_instantiated_orders do
+          get "/api/orders", params: { delivery_status:, per_page: "100" }
+        end
+
+        assert_response :ok
+        body = response.parsed_body
+        assert_equal [ expected_order_id ], body.fetch("orders").pluck("order_id")
+        assert_equal [ delivery_status ], body.fetch("orders").pluck("delivery_status")
+        assert_equal 1, instantiated_orders, "expected #{delivery_status.inspect} filtering to happen before record instantiation"
+      end
+    end
+
+    test "rejects unsupported and structured delivery statuses with the exact error" do
+      [ "delivery_status=in_transit", "delivery_status[]=pending" ].each do |query|
+        get "/api/orders?#{query}"
+
+        assert_response :unprocessable_entity, "expected #{query.inspect} to be rejected"
+        assert_equal({ "error" => "invalid_delivery_status" }, response.parsed_body)
+      end
+    end
+
+    test "defaults to page one with 25 records and reports the complete result metadata" do
+      26.times do |index|
+        create_order(
+          order_id: format("order-default-page-%04d", index),
+          delivered_customer_at: nil
+        )
+      end
+
+      get "/api/orders"
+
+      assert_response :ok
+      body = response.parsed_body
+      assert_equal 25, body.fetch("orders").length
+      assert_equal({ "page" => 1, "per_page" => 25, "total_orders" => 26, "total_pages" => 2 }, body.except("orders"))
+    end
+
+    test "accepts the maximum page size and rejects invalid pagination values" do
+      create_order(order_id: "order-pagination-0001", delivered_customer_at: nil)
+
+      get "/api/orders", params: { page: "1", per_page: "100" }
+
+      assert_response :ok
+      assert_equal({ "page" => 1, "per_page" => 100 }, response.parsed_body.slice("page", "per_page"))
+
+      invalid_queries = [
+        "page=0", "page=-1", "page=abc", "page=1.0", "page=01", "page=%2B1", "page=%201", "page=", "page[]=1",
+        "per_page=0", "per_page=-1", "per_page=abc", "per_page=1.0", "per_page=01", "per_page=101", "per_page[]=25"
+      ]
+
+      invalid_queries.each do |query|
+        get "/api/orders?#{query}"
+
+        assert_response :unprocessable_entity, "expected #{query.inspect} to be rejected"
+        assert_equal({ "error" => "invalid_pagination" }, response.parsed_body)
+      end
+    end
+
+    test "paginates filtered ties deterministically and returns an empty valid far page" do
+      purchase_at = Time.utc(2024, 6, 1, 12)
+      %w[c a b].each do |suffix|
+        create_order(
+          order_id: "order-filtered-tie-#{suffix}",
+          purchase_at:,
+          delivered_customer_at: Time.utc(2024, 1, 13)
+        )
+      end
+      create_order(
+        order_id: "order-filtered-nonmatch",
+        purchase_at:,
+        delivered_customer_at: nil
+      )
+
+      get "/api/orders", params: { delivery_status: "late", page: "1", per_page: "2" }
+
+      assert_response :ok
+      body = response.parsed_body
+      assert_equal %w[order-filtered-tie-a order-filtered-tie-b], body.fetch("orders").pluck("order_id")
+      assert_equal({ "page" => 1, "per_page" => 2, "total_orders" => 3, "total_pages" => 2 }, body.except("orders"))
+
+      get "/api/orders", params: { delivery_status: "late", page: "2", per_page: "2" }
+
+      assert_response :ok
+      assert_equal [ "order-filtered-tie-c" ], response.parsed_body.fetch("orders").pluck("order_id")
+
+      get "/api/orders", params: { delivery_status: "late", page: "999999999999999999999999999999999", per_page: "2" }
+
+      assert_response :ok
+      assert_equal [], response.parsed_body.fetch("orders")
+      assert_equal({ "total_orders" => 3, "total_pages" => 2 }, response.parsed_body.slice("total_orders", "total_pages"))
+    end
+
     private
 
-    def create_order(order_id:, approved_at: Time.utc(2024, 1, 2, 4, 5, 6), delivered_carrier_at: Time.utc(2024, 1, 4), delivered_customer_at: Time.utc(2024, 1, 8))
+    def create_order(order_id:, approved_at: Time.utc(2024, 1, 2, 4, 5, 6), delivered_carrier_at: Time.utc(2024, 1, 4), delivered_customer_at: Time.utc(2024, 1, 8), purchase_at: Time.utc(2024, 1, 2, 3, 4, 5))
       Order.create!(
         order_id:,
         customer: @customer,
         status: "delivered",
-        purchase_at: Time.utc(2024, 1, 2, 3, 4, 5),
+        purchase_at:,
         approved_at:,
         delivered_carrier_at:,
         delivered_customer_at:,
@@ -201,6 +338,16 @@ module Api
         creation_at:,
         answer_at:
       )
+    end
+
+    def count_instantiated_orders
+      count = 0
+      subscriber = lambda do |_name, _started, _finished, _unique_id, payload|
+        count += payload[:record_count] if payload[:class_name] == "Order"
+      end
+
+      ActiveSupport::Notifications.subscribed(subscriber, "instantiation.active_record") { yield }
+      count
     end
   end
 end

@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
   namespace :api, defaults: { format: :json } do
-    resources :orders, only: :show, param: :order_id
+    resources :orders, only: %i[index show], param: :order_id
     resources :sellers, only: [] do
       resources :orders, only: :index, controller: "seller_orders"
     end
