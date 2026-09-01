@@ -7,6 +7,11 @@ Rails.application.routes.draw do
     resources :orders, only: %i[index show], param: :order_id
     resources :sellers, only: [] do
       resources :orders, only: :index, controller: "seller_orders"
+      resources :reports, only: :create, controller: "seller_reports"
+    end
+
+    resources :reports, only: :show, param: :report_id do
+      get :download, on: :member
     end
   end
 
