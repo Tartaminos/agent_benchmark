@@ -78,9 +78,10 @@ class BenchmarkRunner
 
     started_wall = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     started_at = Time.now.utc
-    exit_code = execute_codex(command, prompt, events_path, stderr_path)
+    exit_code, agent_monitor_state = execute_codex(command, prompt, events_path, stderr_path)
     ended_at = Time.now.utc
     wall_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_wall
+    discover_live_rollouts(agent_monitor_state)
 
     exec_metrics = parse_exec_events(events_path)
     root_thread_id = exec_metrics["root_thread_id"]
@@ -213,6 +214,14 @@ class BenchmarkRunner
   end
 
   def execute_codex(command, prompt, events_path, stderr_path)
+    monitor_state = {
+      "root_thread_id" => nil,
+      "known_paths" => rollout_paths,
+      "indexed" => {},
+      "announced" => {}
+    }
+    monitor_thread = Thread.new { monitor_agents(monitor_state) }
+
     File.open(events_path, "w") do |events|
       File.open(stderr_path, "w") do |stderr_file|
         Open3.popen3(*command, chdir: @repo_root.to_s) do |stdin, stdout, stderr, wait_thread|
@@ -239,15 +248,79 @@ class BenchmarkRunner
           stdout.each_line do |line|
             events.write(line)
             events.flush
+            monitor_state["root_thread_id"] = JSON.parse(line)["thread_id"] if line.include?("thread.started")
+          rescue JSON::ParserError
+            # Keep the complete stdout stream unchanged even if a line is not JSON.
           end
 
           stderr_reader.join
-          return wait_thread.value.exitstatus
+          exit_code = wait_thread.value.exitstatus
         end
       end
     end
+    [exit_code, monitor_state]
   rescue Errno::ENOENT => e
     raise BenchmarkError, "Unable to start Codex CLI: #{e.message}"
+  ensure
+    monitor_thread&.kill
+    monitor_thread&.join
+    announce_discovered_agents(monitor_state) if monitor_state
+  end
+
+  def rollout_paths
+    sessions_root = codex_home.join("sessions")
+    return [] unless sessions_root.directory?
+
+    Dir.glob(sessions_root.join("**", "rollout-*.jsonl").to_s)
+  end
+
+  def monitor_agents(state)
+    loop do
+      discover_live_rollouts(state)
+      sleep 1
+    end
+  rescue StandardError => e
+    warn "Agent monitor failed: #{e.class}: #{e.message}"
+  end
+
+  def discover_live_rollouts(state)
+    rollout_paths.each do |raw_path|
+      next if state["known_paths"].include?(raw_path)
+
+      path = Pathname.new(raw_path)
+      meta = first_session_meta(path)
+      next unless meta
+
+      state["known_paths"] << raw_path
+      thread_id = meta["id"]
+      next unless thread_id.is_a?(String) && !thread_id.empty?
+
+      state["indexed"][thread_id] = {
+        "path" => path,
+        "meta" => meta,
+        "parent_thread_id" => nested_parent_thread_id(meta)
+      }
+    end
+
+    announce_discovered_agents(state)
+  end
+
+  def announce_discovered_agents(state)
+    root_thread_id = state["root_thread_id"]
+    return unless root_thread_id
+
+    rollout_tree(state["indexed"], root_thread_id).each do |thread_id|
+      next if thread_id == root_thread_id || state["announced"].key?(thread_id)
+
+      record = state["indexed"].fetch(thread_id)
+      meta = record.fetch("meta")
+      next unless meta["agent_role"] || meta["agent_path"]
+
+      role = meta["agent_role"] || meta["agent_path"]
+      path = meta["agent_path"] || "(path unavailable)"
+      puts "[AGENT] #{role} #{path}"
+      state["announced"][thread_id] = true
+    end
   end
 
   def parse_exec_events(path)
@@ -743,7 +816,17 @@ class BenchmarkRunner
     puts "  run: #{result['run']}"
     puts "  exit_code: #{result['exit_code']}"
     puts "  wall_time_seconds: #{result['wall_time_seconds']}"
-    puts "  threads: #{result['thread_count']}"
+    puts
+    puts "Agents executed:"
+    agent_names = result.fetch("threads").reject { |thread| thread["thread_id"] == result["root_thread_id"] }.filter_map do |thread|
+      thread["agent_role"] || thread["agent_path"]
+    end.uniq
+    if agent_names.empty?
+      puts "- none"
+    else
+      agent_names.each { |name| puts "- #{name}" }
+    end
+    puts "Threads: #{result['thread_count']}"
     puts "  input_tokens: #{result.dig('usage', 'input_tokens')}"
     puts "  cached_input_tokens: #{result.dig('usage', 'cached_input_tokens')}"
     puts "  output_tokens: #{result.dig('usage', 'output_tokens')}"
