@@ -195,7 +195,7 @@ class BenchmarkRunner
 
   def build_prompt(task_path)
     relative_task = relative_to_repo(task_path)
-    "$software-development-workflow Execute the benchmark task defined in #{relative_task}. Complete the entire workflow autonomously."
+    "Execute the benchmark task defined in #{relative_task}. Complete it autonomously. Use the project-scoped agents when useful."
   end
 
   def codex_command(final_message_path, image_path)
