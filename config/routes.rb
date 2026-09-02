@@ -5,6 +5,9 @@ Rails.application.routes.draw do
 
   namespace :api, defaults: { format: :json } do
     resources :orders, only: %i[index show], param: :order_id
+    resources :order_exports, only: %i[create show], param: :export_id do
+      get :download, on: :member
+    end
     resources :sellers, only: [] do
       resources :orders, only: :index, controller: "seller_orders"
       resources :reports, only: :create, controller: "seller_reports"
