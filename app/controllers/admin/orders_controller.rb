@@ -3,8 +3,8 @@ module Admin
     layout "admin"
 
     PAGE_SIZE = 25
-    ORDER_STATUSES = %w[approved canceled created delivered invoiced processing shipped unavailable].freeze
-    CUSTOMER_STATES = %w[AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO].freeze
+    ORDER_STATUSES = Order::ORDER_STATUSES
+    CUSTOMER_STATES = Customer::STATES
     SORT_DIRECTIONS = %w[asc desc].freeze
     FILTER_NAMES = %i[order_id status delivery_status customer_state purchased_from purchased_through].freeze
 

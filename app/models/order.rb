@@ -1,4 +1,5 @@
 class Order < ApplicationRecord
+  ORDER_STATUSES = %w[approved canceled created delivered invoiced processing shipped unavailable].freeze
   DELIVERY_STATUSES = %w[pending on_time late].freeze
 
   belongs_to :customer

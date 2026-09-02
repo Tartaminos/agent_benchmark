@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_20_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -35,6 +35,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_130000) do
     t.datetime "updated_at", null: false
     t.string "zip_code_prefix", limit: 5, null: false
     t.index ["zip_code_prefix"], name: "index_geolocations_on_zip_code_prefix"
+  end
+
+  create_table "order_exports", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "csv_content"
+    t.string "customer_state", limit: 2
+    t.string "delivery_status", limit: 10
+    t.uuid "export_id", null: false
+    t.string "order_status", limit: 11
+    t.date "purchase_from"
+    t.date "purchase_to"
+    t.string "status", limit: 10, default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["export_id"], name: "index_order_exports_on_export_id", unique: true
+    t.check_constraint "purchase_from IS NULL OR purchase_to IS NULL OR purchase_from <= purchase_to", name: "order_exports_date_range_check"
+    t.check_constraint "status::text = 'completed'::text AND csv_content IS NOT NULL OR status::text <> 'completed'::text AND csv_content IS NULL", name: "order_exports_csv_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "order_exports_status_check"
   end
 
   create_table "order_items", force: :cascade do |t|

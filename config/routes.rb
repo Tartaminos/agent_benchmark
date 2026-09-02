@@ -5,6 +5,9 @@ Rails.application.routes.draw do
 
   namespace :api do
     resources :orders, only: %i[index show], param: :order_id
+    resources :order_exports, only: %i[create show], param: :export_id do
+      get :download, on: :member
+    end
     get "sellers/:seller_id/orders", to: "seller_orders#index", as: :seller_orders
     post "sellers/:seller_id/reports", to: "seller_reports#create", as: :seller_reports
     get "reports/:report_id", to: "reports#show", as: :report
