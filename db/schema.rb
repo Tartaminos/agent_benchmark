@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_02_100100) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_110000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -156,6 +156,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_100100) do
     t.index ["product_id"], name: "index_products_on_product_id", unique: true
   end
 
+  create_table "reconciliation_discrepancies", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.decimal "difference", precision: 20, scale: 2, null: false
+    t.decimal "expected_value", precision: 20, scale: 2, null: false
+    t.string "external_order_id", limit: 32, null: false
+    t.string "issue_type", limit: 20, null: false
+    t.decimal "paid_value", precision: 20, scale: 2, null: false
+    t.bigint "seller_reconciliation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["seller_reconciliation_id", "external_order_id"], name: "index_reconciliation_discrepancies_on_reconciliation_order", unique: true
+    t.index ["seller_reconciliation_id"], name: "index_reconciliation_discrepancies_on_seller_reconciliation_id"
+    t.check_constraint "difference = (paid_value - expected_value)", name: "reconciliation_discrepancies_consistent_amounts"
+    t.check_constraint "issue_type::text <> 'missing_payment'::text OR paid_value = 0::numeric", name: "reconciliation_discrepancies_missing_payment_zero"
+    t.check_constraint "issue_type::text = ANY (ARRAY['missing_payment'::character varying, 'amount_mismatch'::character varying]::text[])", name: "reconciliation_discrepancies_valid_issue_type"
+  end
+
   create_table "seller_performance_reports", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "csv_data"
@@ -171,6 +187,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_100100) do
     t.check_constraint "start_date <= end_date", name: "seller_performance_reports_valid_date_range"
     t.check_constraint "status::text = 'completed'::text AND csv_data IS NOT NULL OR status::text <> 'completed'::text AND csv_data IS NULL", name: "seller_performance_reports_csv_matches_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "seller_performance_reports_valid_status"
+  end
+
+  create_table "seller_reconciliations", force: :cascade do |t|
+    t.bigint "amount_mismatch_orders"
+    t.datetime "created_at", null: false
+    t.decimal "difference", precision: 20, scale: 2
+    t.date "end_date", null: false
+    t.decimal "expected_value", precision: 20, scale: 2
+    t.bigint "inconsistent_orders"
+    t.bigint "matched_orders"
+    t.bigint "missing_payment_orders"
+    t.bigint "orders_checked"
+    t.decimal "paid_value", precision: 20, scale: 2
+    t.uuid "reconciliation_id", null: false
+    t.bigint "seller_id", null: false
+    t.date "start_date", null: false
+    t.string "status", limit: 10, default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["reconciliation_id"], name: "index_seller_reconciliations_on_reconciliation_id", unique: true
+    t.index ["seller_id", "created_at"], name: "index_seller_reconciliations_on_seller_id_and_created_at"
+    t.index ["seller_id"], name: "index_seller_reconciliations_on_seller_id"
+    t.check_constraint "start_date <= end_date", name: "seller_reconciliations_valid_date_range"
+    t.check_constraint "status::text <> 'completed'::text OR orders_checked >= 0 AND matched_orders >= 0 AND inconsistent_orders >= 0 AND missing_payment_orders >= 0 AND amount_mismatch_orders >= 0 AND orders_checked = (matched_orders + inconsistent_orders) AND inconsistent_orders = (missing_payment_orders + amount_mismatch_orders) AND difference = (paid_value - expected_value)", name: "seller_reconciliations_consistent_summary"
+    t.check_constraint "status::text = 'completed'::text AND orders_checked IS NOT NULL AND matched_orders IS NOT NULL AND inconsistent_orders IS NOT NULL AND missing_payment_orders IS NOT NULL AND amount_mismatch_orders IS NOT NULL AND expected_value IS NOT NULL AND paid_value IS NOT NULL AND difference IS NOT NULL OR status::text <> 'completed'::text AND orders_checked IS NULL AND matched_orders IS NULL AND inconsistent_orders IS NULL AND missing_payment_orders IS NULL AND amount_mismatch_orders IS NULL AND expected_value IS NULL AND paid_value IS NULL AND difference IS NULL", name: "seller_reconciliations_summary_matches_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "seller_reconciliations_valid_status"
   end
 
   create_table "sellers", force: :cascade do |t|
@@ -191,5 +232,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_100100) do
   add_foreign_key "order_payments", "orders"
   add_foreign_key "order_reviews", "orders"
   add_foreign_key "orders", "customers"
+  add_foreign_key "reconciliation_discrepancies", "seller_reconciliations"
   add_foreign_key "seller_performance_reports", "sellers"
+  add_foreign_key "seller_reconciliations", "sellers"
 end

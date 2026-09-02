@@ -11,10 +11,14 @@ Rails.application.routes.draw do
     resources :sellers, only: [] do
       resources :orders, only: :index, controller: "seller_orders"
       resources :reports, only: :create, controller: "seller_reports"
+      resources :reconciliations, only: :create, controller: "seller_reconciliations"
     end
 
     resources :reports, only: :show, param: :report_id do
       get :download, on: :member
+    end
+    resources :reconciliations, only: :show, param: :reconciliation_id do
+      get :discrepancies, on: :member
     end
   end
 
