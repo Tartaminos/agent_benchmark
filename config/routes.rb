@@ -10,8 +10,15 @@ Rails.application.routes.draw do
     end
     get "sellers/:seller_id/orders", to: "seller_orders#index", as: :seller_orders
     post "sellers/:seller_id/reports", to: "seller_reports#create", as: :seller_reports
+    post "sellers/:seller_id/reconciliations",
+         to: "seller_reconciliations#create",
+         as: :seller_reconciliations
     get "reports/:report_id", to: "reports#show", as: :report
     get "reports/:report_id/download", to: "reports#download", as: :report_download
+    get "reconciliations/:reconciliation_id", to: "reconciliations#show", as: :reconciliation
+    get "reconciliations/:reconciliation_id/discrepancies",
+        to: "reconciliation_discrepancies#index",
+        as: :reconciliation_discrepancies
   end
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

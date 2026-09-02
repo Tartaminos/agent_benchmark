@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_02_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -152,6 +152,49 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_120000) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "seller_performance_reports_status_check"
   end
 
+  create_table "seller_reconciliation_discrepancies", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.decimal "difference", precision: 20, scale: 2, null: false
+    t.decimal "expected_value", precision: 20, scale: 2, null: false
+    t.string "external_order_id", limit: 32, null: false
+    t.string "issue_type", limit: 15, null: false
+    t.decimal "paid_value", precision: 20, scale: 2, null: false
+    t.bigint "seller_reconciliation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["seller_reconciliation_id", "external_order_id"], name: "idx_reconciliation_discrepancies_order", unique: true
+    t.check_constraint "expected_value >= 0::numeric AND paid_value >= 0::numeric AND difference = (paid_value - expected_value)", name: "reconciliation_discrepancies_money_check"
+    t.check_constraint "issue_type::text = 'missing_payment'::text AND paid_value = 0::numeric AND difference = (- expected_value) OR issue_type::text = 'amount_mismatch'::text AND difference <> 0::numeric", name: "reconciliation_discrepancies_classification_check"
+    t.check_constraint "issue_type::text = ANY (ARRAY['missing_payment'::character varying, 'amount_mismatch'::character varying]::text[])", name: "reconciliation_discrepancies_issue_type_check"
+  end
+
+  create_table "seller_reconciliations", force: :cascade do |t|
+    t.bigint "amount_mismatch_orders"
+    t.datetime "created_at", null: false
+    t.decimal "difference", precision: 20, scale: 2
+    t.date "end_date", null: false
+    t.decimal "expected_value", precision: 20, scale: 2
+    t.bigint "inconsistent_orders"
+    t.bigint "matched_orders"
+    t.bigint "missing_payment_orders"
+    t.bigint "orders_checked"
+    t.decimal "paid_value", precision: 20, scale: 2
+    t.uuid "processing_token"
+    t.uuid "reconciliation_id", null: false
+    t.bigint "seller_id", null: false
+    t.date "start_date", null: false
+    t.string "status", limit: 10, default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["reconciliation_id"], name: "index_seller_reconciliations_on_reconciliation_id", unique: true
+    t.index ["seller_id"], name: "index_seller_reconciliations_on_seller_id"
+    t.check_constraint "(status::text = 'processing'::text) = (processing_token IS NOT NULL)", name: "seller_reconciliations_processing_token_check"
+    t.check_constraint "expected_value >= 0::numeric AND paid_value >= 0::numeric AND difference = (paid_value - expected_value)", name: "seller_reconciliations_money_invariants_check"
+    t.check_constraint "orders_checked = (matched_orders + inconsistent_orders) AND inconsistent_orders = (missing_payment_orders + amount_mismatch_orders)", name: "seller_reconciliations_count_invariants_check"
+    t.check_constraint "orders_checked >= 0 AND matched_orders >= 0 AND inconsistent_orders >= 0 AND missing_payment_orders >= 0 AND amount_mismatch_orders >= 0", name: "seller_reconciliations_nonnegative_counts_check"
+    t.check_constraint "start_date <= end_date", name: "seller_reconciliations_date_range_check"
+    t.check_constraint "status::text = 'completed'::text AND orders_checked IS NOT NULL AND matched_orders IS NOT NULL AND inconsistent_orders IS NOT NULL AND missing_payment_orders IS NOT NULL AND amount_mismatch_orders IS NOT NULL AND expected_value IS NOT NULL AND paid_value IS NOT NULL AND difference IS NOT NULL AND processing_token IS NULL OR status::text <> 'completed'::text AND orders_checked IS NULL AND matched_orders IS NULL AND inconsistent_orders IS NULL AND missing_payment_orders IS NULL AND amount_mismatch_orders IS NULL AND expected_value IS NULL AND paid_value IS NULL AND difference IS NULL", name: "seller_reconciliations_summary_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "seller_reconciliations_status_check"
+  end
+
   create_table "sellers", force: :cascade do |t|
     t.string "city", limit: 40, null: false
     t.datetime "created_at", null: false
@@ -169,4 +212,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_120000) do
   add_foreign_key "order_reviews", "orders"
   add_foreign_key "orders", "customers"
   add_foreign_key "seller_performance_reports", "sellers"
+  add_foreign_key "seller_reconciliation_discrepancies", "seller_reconciliations", on_delete: :cascade
+  add_foreign_key "seller_reconciliations", "sellers"
 end
