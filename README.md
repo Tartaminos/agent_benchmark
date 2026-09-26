@@ -13,6 +13,8 @@ Each experiment starts from a common project baseline and runs the same tasks in
 ~~~text
 main
 ├── baseline
+├── remove-agents-from-flow
+├── experiment/functionality-first
 ├── experiment/no-qa
 ├── experiment/reduced-context
 └── ...
@@ -24,6 +26,25 @@ Task 03 -> commit
 ~~~
 
 This makes the benchmark closer to a real development workflow: changes persist between tasks and later tasks operate on the code produced by earlier ones.
+
+### Functionality-first experiment
+
+`experiment/functionality-first` is derived directly from `remove-agents-from-flow`,
+the current reference workflow for this experiment.
+
+It preserves the same agent pipeline, orchestration model, task flow, model policy, and
+functional verification requirements. The experimental variable is the optimization
+objective applied to implementation work.
+
+The functionality-first branch still requires correct observable behavior, explicit
+contracts, security, data integrity, runtime compatibility, automated verification, and
+approved UI/UX behavior. However, internal code quality is deliberately non-gating:
+descriptive naming, DRY, SOLID, idiomatic style, abstraction quality, method size,
+maintainability, extensibility, and code elegance are not optimization targets unless a
+task explicitly requires them.
+
+The branch is intended to measure how much time, token usage, and cost are associated
+with producing sustainable code versus producing code that primarily works.
 
 ## Goals
 
