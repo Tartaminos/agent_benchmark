@@ -5,9 +5,23 @@ description: Orchestrate meaningful production software changes through architec
 
 # Software Development Workflow
 
-The main Codex thread is the ORCHESTRATOR. It coordinates specialized agents; specialists perform their owned engineering work. The goal is a scoped, coherent implementation with independent automated testing, UI/UX implementation review when applicable, controlled correction loops, and minimal non-transitive context between agents.
+The main Codex thread is the ORCHESTRATOR. It coordinates specialized agents; specialists perform their owned engineering work. The goal is a functionally correct implementation with independent automated testing, UI/UX implementation review when applicable, controlled correction loops, and minimal non-transitive context between agents.
 
 This workflow does not invoke `reviewer` or `qa-engineer`. Those agents may exist in the repository but are outside this orchestration.
+
+## Experimental implementation policy — functionality first
+
+This branch measures a functionality-first, minimal-engineering workflow derived from `remove-agents-from-flow`.
+
+The workflow must preserve required observable behavior and acceptance criteria, the minimum architecture required for execution, explicit contracts, security, data integrity, runtime compatibility, benchmark-valid automated verification, and approved user-visible UI/UX behavior when applicable.
+
+The workflow intentionally does NOT optimize for descriptive naming, readability, DRY, SOLID, abstraction quality, idiomatic code, method size, modularity beyond functional necessity, maintainability, extensibility, code elegance, or long-term technical debt.
+
+Single-letter variables, duplicated code, long methods, inline logic, direct coupling, and non-idiomatic but valid code are acceptable. Agents must not spend time improving these qualities unless doing so is required for functional correctness or another hard constraint.
+
+Do not deliberately sabotage code quality. The experiment removes quality optimization; it does not require artificial degradation.
+
+Internal code-quality findings alone must never trigger correction routing or block completion in this branch.
 
 ---
 
@@ -79,6 +93,9 @@ Before production specialists, define:
 ### Likely Affected Surfaces
 <backend/frontend/mobile/database/integrations/etc>
 
+### Experimental Quality Policy
+Functionality-first / minimal engineering. Internal code quality is not an acceptance criterion unless explicitly required by the selected task.
+
 Scope Lock is binding. Unrelated findings are reported separately unless necessary for safe task completion; do not silently expand implementation.
 
 Discovery also resolves applicable instructions/skills, source docs, affected repository areas, git state, task modifiers, and required agents. It prepares context; it does not replace specialist analysis.
@@ -105,7 +122,7 @@ Applicability:
 - `test-engineer`: mandatory when behavior, logic, contracts, persistence, integrations, security, UI behavior, or regression risk changes.
 - `ui-ux-engineer`: mandatory for meaningful user-visible flow, interaction, responsive/accessibility behavior, navigation, copy, UI states, or feedback changes.
 
-Use the smallest pipeline that preserves required architecture, product, implementation, and independent automated-test confidence.
+Use the same specialist applicability as the source workflow. Do not skip an agent merely because internal code quality is relaxed. The experiment changes optimization criteria, not the agent pipeline or functional confidence requirements.
 
 ---
 
@@ -335,7 +352,9 @@ Never convert NOT EXECUTED, unavailable evidence, a confirmed unrelated baseline
 
 Separate confirmed pre-existing failures from current-task failures and preserve their effect on confidence.
 
-Never alter Scope Lock, source-of-truth, acceptance criteria, security expectations, or valid verification merely to obtain a green workflow.
+Never alter Scope Lock, source-of-truth, acceptance criteria, security expectations, data-integrity requirements, or valid verification merely to obtain a green workflow.
+
+Do not strengthen acceptance criteria with generic code-quality expectations. Naming, readability, DRY, SOLID, abstraction quality, idiomatic style, maintainability, extensibility, and elegance are intentionally non-gating unless the task explicitly requires them.
 
 ---
 
