@@ -1,5 +1,75 @@
 module Api
   class OrdersController < ApplicationController
+    def index
+      page = pagination_value(params[:page], 1)
+      per_page = pagination_value(params[:per_page], 20)
+
+      unless page && per_page && per_page <= 100
+        render json: { error: "invalid_pagination" }, status: :unprocessable_content
+        return
+      end
+
+      seller = Seller.find_by(seller_id: params[:seller_id])
+
+      unless seller
+        render json: { error: "seller_not_found" }, status: :not_found
+        return
+      end
+
+      seller_items = OrderItem.where(seller_id: seller.id)
+      total_orders = seller_items.distinct.count(:order_id)
+      orders = Order.joins(:order_items)
+        .where(order_items: { seller_id: seller.id })
+        .select(
+          "orders.id",
+          "orders.order_id",
+          "orders.status",
+          "orders.purchase_at", 
+          "COUNT(order_items.id) AS seller_item_count",
+          "COALESCE(SUM(order_items.price), 0) AS seller_items_value",
+          "COALESCE(SUM(order_items.freight_value), 0) AS seller_freight_value"
+        )
+        .group("orders.id")
+        .order(purchase_at: :desc, order_id: :asc)
+        .limit(per_page)
+        .offset((page - 1) * per_page)
+        .to_a
+
+      products_by_order = Hash.new { |hash, order_id| hash[order_id] = [] }
+      if orders.any?
+        OrderItem.joins(:product)
+          .where(seller_id: seller.id, order_id: orders.map(&:id))
+          .distinct
+          .order(:order_id, "products.product_id")
+          .pluck(:order_id, "products.product_id", "products.category_name")
+          .each do |order_id, product_id, category_name|
+            products_by_order[order_id] << { product_id: product_id, category_name: category_name }
+          end
+      end
+
+      render json: {
+        seller_id: seller.seller_id,
+        page: page,
+        per_page: per_page,
+        total_orders: total_orders,
+        orders: orders.map do |order|
+          items_value = order.seller_items_value
+          freight_value = order.seller_freight_value
+
+          {
+            order_id: order.order_id,
+            status: order.status,
+            purchase_at: timestamp(order.purchase_at),
+            item_count: order.seller_item_count,
+            items_value: money(items_value),
+            freight_value: money(freight_value),
+            total_value: money(items_value + freight_value),
+            products: products_by_order[order.id]
+          }
+        end
+      }
+    end
+
     def show
       order = Order.find_by(order_id: params[:order_id])
 
@@ -66,6 +136,14 @@ module Api
     end
 
     private
+
+    def pagination_value(value, default)
+      return default if value.nil?
+      return unless value.is_a?(String) && value.match?(/\A[0-9]+\z/)
+
+      number = value.to_i
+      number if number.positive?
+    end
 
     def timestamp(value)
       value&.utc&.iso8601(3)
