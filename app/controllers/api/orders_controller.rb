@@ -1,5 +1,76 @@
 module Api
   class OrdersController < ApplicationController
+    DELIVERY_STATUS_SQL = <<~SQL.squish.freeze
+      CASE
+        WHEN delivered_customer_at IS NULL THEN 'pending'
+        WHEN delivered_customer_at <= estimated_delivery_at THEN 'on_time'
+        ELSE 'late'
+      END
+    SQL
+
+    def delivery_index
+      page = pagination_value(params[:page], 1)
+      requested_per_page = pagination_value(params[:per_page], 25)
+
+      unless page && requested_per_page
+        render json: { error: "invalid_pagination" }, status: :unprocessable_content
+        return
+      end
+
+      per_page = [requested_per_page, 100].min
+      delivery_status = params[:delivery_status]
+
+      unless delivery_status.nil? || (delivery_status.is_a?(String) && %w[pending on_time late].include?(delivery_status))
+        render json: { error: "invalid_delivery_status" }, status: :unprocessable_content
+        return
+      end
+
+      orders = Order.all
+      orders = case delivery_status
+      when "pending"
+        orders.where(delivered_customer_at: nil)
+      when "on_time"
+        orders.where.not(delivered_customer_at: nil)
+          .where("delivered_customer_at <= estimated_delivery_at")
+      when "late"
+        orders.where("delivered_customer_at > estimated_delivery_at")
+      else
+        orders
+      end
+
+      total_orders = orders.count
+      orders = orders
+        .select(
+          :order_id,
+          :status,
+          :purchase_at,
+          :estimated_delivery_at,
+          :delivered_customer_at,
+          "#{DELIVERY_STATUS_SQL} AS delivery_status"
+        )
+        .order(purchase_at: :desc, order_id: :asc)
+        .limit(per_page)
+        .offset((page - 1) * per_page)
+        .to_a
+
+      render json: {
+        page: page,
+        per_page: per_page,
+        total_orders: total_orders,
+        total_pages: total_orders.zero? ? 0 : (total_orders.to_f / per_page).ceil,
+        orders: orders.map do |order|
+          {
+            order_id: order.order_id,
+            status: order.status,
+            purchase_at: timestamp(order.purchase_at),
+            estimated_delivery_at: timestamp(order.estimated_delivery_at),
+            delivered_customer_at: timestamp(order.delivered_customer_at),
+            delivery_status: order.delivery_status
+          }
+        end
+      }
+    end
+
     def index
       page = pagination_value(params[:page], 1)
       per_page = pagination_value(params[:per_page], 20)

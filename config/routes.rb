@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
   namespace :api do
+    get "orders", to: "orders#delivery_index"
     get "orders/:order_id", to: "orders#show"
     get "sellers/:seller_id/orders", to: "orders#index"
   end
