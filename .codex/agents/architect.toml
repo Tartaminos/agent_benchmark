@@ -92,12 +92,9 @@ authorization boundaries, tenant/data isolation, and integration contracts when 
 task depends on them.
 
 Other internal module boundaries, responsibility placement, dependency direction, and
-repository conventions are soft constraints in this experiment. Follow them when doing
-so is the shortest viable path; otherwise a simpler direct implementation is acceptable
-provided required behavior, compatibility, security, and data integrity remain correct.
-
-Do not report an architectural deviation merely because code is less elegant,
-less modular, more coupled, duplicated, or harder to maintain.
+repository conventions are soft constraints. A simpler direct implementation is
+acceptable when required behavior, compatibility, security, and data integrity remain
+correct.
 
 ---
 
