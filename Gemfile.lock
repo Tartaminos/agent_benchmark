@@ -77,12 +77,13 @@ GEM
       uri (>= 0.13.1)
     addressable (2.9.0)
       public_suffix (>= 2.0.2, < 8.0)
+    amazing_print (3.0.0)
     ast (2.4.3)
     base64 (0.3.0)
     bcrypt_pbkdf (1.1.2)
     bigdecimal (4.1.2)
     bindex (0.8.1)
-    bootsnap (1.25.0)
+    bootsnap (1.26.1)
       msgpack (~> 1.5)
     brakeman (8.0.6)
       racc
@@ -99,6 +100,7 @@ GEM
       rack-test (>= 0.6.3)
       regexp_parser (>= 1.5, < 3.0)
       xpath (~> 3.2)
+    coderay (1.1.3)
     concurrent-ruby (1.3.8)
     connection_pool (3.0.2)
     crass (1.0.7)
@@ -169,13 +171,14 @@ GEM
       net-smtp
     marcel (1.2.1)
     matrix (0.4.3)
+    method_source (1.1.0)
     mini_magick (5.3.3)
       logger
     mini_mime (1.1.5)
     minitest (6.0.6)
       drb (~> 2.0)
       prism (~> 1.5)
-    msgpack (1.8.4)
+    msgpack (1.8.7)
     net-imap (0.6.6)
       date
       net-protocol
@@ -221,6 +224,10 @@ GEM
       actionpack (>= 7.0.0)
       activesupport (>= 7.0.0)
       rack
+    pry (0.16.1)
+      coderay (~> 1.1)
+      method_source (~> 1.0)
+      reline (>= 0.6.0)
     public_suffix (7.0.5)
     puma (8.0.2)
       nio4r (~> 2.0)
@@ -384,6 +391,7 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
+  amazing_print
   bootsnap
   brakeman
   bundler-audit
@@ -396,6 +404,7 @@ DEPENDENCIES
   kamal
   pg (~> 1.1)
   propshaft
+  pry
   puma (>= 5.0)
   rails (~> 8.1.3, >= 8.1.3.1)
   rubocop-rails-omakase
